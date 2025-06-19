@@ -68,6 +68,7 @@ export default function CameraComponent() {
         scale: { width: 192, height: 192 },
         pixelFormat: 'rgb',
         dataType: 'uint8',
+        rotation: '90deg',
       });
 
       if (!resized || !resized.length) {
@@ -273,6 +274,7 @@ const styles = StyleSheet.create({
     top: -20,
   },
 });
+
 
 
 
