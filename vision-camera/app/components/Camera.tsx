@@ -25,7 +25,12 @@ interface Detection {
 
 let posturaAnterior: Detection['posture'] = 'de_pie';
 const TIEMPO_UMBRAL_MS = 20000;
+const HORIZONTAL_FRAMES_TOLERANCE = 5;
+const VERTICAL_GAP_FRAMES = 10;
+
 const horizontalStartTimeRef = { current: null as number | null };
+const horizontalFramesRef = { current: 0 };
+const verticalGapFramesRef = { current: 0 };
 
 export default function CameraComponent() {
   const { hasPermission: hasCameraPermission, requestPermission: requestCameraPermission } = useCameraPermission();
@@ -44,119 +49,118 @@ export default function CameraComponent() {
 
   useEffect(() => {
     (async () => {
-      if (!hasCameraPermission) {
-        console.log('[Permisos] Solicitando permiso de cámara');
-        await requestCameraPermission();
-      }
-      if (!hasMicrophonePermission) {
-        console.log('[Permisos] Solicitando permiso de micrófono');
-        await requestMicrophonePermission();
-      }
+      if (!hasCameraPermission) await requestCameraPermission();
+      if (!hasMicrophonePermission) await requestMicrophonePermission();
     })();
   }, []);
 
-  const frameProcessor = useFrameProcessor((frame) => {
-    'worklet';
+  const frameProcessor = useFrameProcessor(
+    (frame) => {
+      'worklet';
+      if (!model) return;
 
-    if (!model) {
-      console.log('🚫 Modelo aún no cargado');
-      return;
-    }
-
-    try {
-      const resized = resize(frame, {
-        scale: { width: 192, height: 192 },
-        pixelFormat: 'rgb',
-        dataType: 'uint8',
-        rotation: '90deg',
-      });
-
-      if (!resized || !resized.length) {
-        console.log('⛔️ Frame vacío tras resize');
-        return;
-      }
-
-      const output = model.runSync([resized])[0];
-      const raw = output.data ?? output;
-      if (!raw || raw.length !== 51) {
-        console.log('⛔️ Salida inesperada del modelo');
-        return;
-      }
-
-      const keypoints: { x: number; y: number; score: number }[] = [];
-      for (let i = 0; i < 17; i++) {
-        keypoints.push({
-          y: raw[i * 3],
-          x: raw[i * 3 + 1],
-          score: raw[i * 3 + 2],
+      try {
+        const resized = resize(frame, {
+          scale: { width: 192, height: 192 },
+          pixelFormat: 'rgb',
+          dataType: 'uint8',
+          rotation: '90deg',
         });
-      }
 
-      const buenos = keypoints.filter(kp => kp.score > 0.3);
-      if (buenos.length < 6) {
-        console.log('❌ No se detecta persona fiable');
-        horizontalStartTimeRef.current = null;
-        setShowAlertJS(false);
-        setDetectionsJS([]);
-        return;
-      }
+        if (!resized?.length) return;
 
-      let minX = 1, minY = 1, maxX = 0, maxY = 0;
-      for (const kp of buenos) {
-        if (kp.x < minX) minX = kp.x;
-        if (kp.y < minY) minY = kp.y;
-        if (kp.x > maxX) maxX = kp.x;
-        if (kp.y > maxY) maxY = kp.y;
-      }
+        const output = model.runSync([resized])[0];
+        const raw = output.data ?? output;
+        if (!raw || raw.length !== 51) return;
 
-      const width = maxX - minX;
-      const height = maxY - minY;
-      const aspect = height / width;
+        const keypoints: { x: number; y: number; score: number }[] = [];
+        for (let i = 0; i < 17; i++) {
+          keypoints.push({
+            y: raw[i * 3],
+            x: raw[i * 3 + 1],
+            score: raw[i * 3 + 2],
+          });
+        }
 
-      let posturaActual: 'de_pie' | 'horizontal' = posturaAnterior;
-      if (aspect > 1.1) posturaActual = 'de_pie';
-      else if (aspect < 0.8) posturaActual = 'horizontal';
+        const buenos = keypoints.filter((kp) => kp.score > 0.3);
+        if (buenos.length < 6) {
+          horizontalFramesRef.current = 0;
+          verticalGapFramesRef.current = 0;
+          horizontalStartTimeRef.current = null;
+          setShowAlertJS(false);
+          setDetectionsJS([]);
+          return;
+        }
 
-      const bestDetection: Detection = {
-        left: minX,
-        top: minY,
-        right: maxX,
-        bottom: maxY,
-        confidence: Math.min(...buenos.map(k => k.score)),
-        class: 'persona',
-        posture: posturaActual,
-      };
+        let minX = 1,
+          minY = 1,
+          maxX = 0,
+          maxY = 0;
+        for (const kp of buenos) {
+          if (kp.x < minX) minX = kp.x;
+          if (kp.y < minY) minY = kp.y;
+          if (kp.x > maxX) maxX = kp.x;
+          if (kp.y > maxY) maxY = kp.y;
+        }
 
-      console.log(`✅ Persona detectada - postura: ${posturaActual}`);
-      const ahora = Date.now();
+        const width = maxX - minX;
+        const height = maxY - minY;
+        const aspect = height / width;
 
-      if (posturaActual === 'horizontal') {
-        if (horizontalStartTimeRef.current === null) {
-          horizontalStartTimeRef.current = ahora;
-          console.log('🕒 Temporizador de caída iniciado');
+        let posturaActual: 'de_pie' | 'horizontal' = posturaAnterior;
+        if (aspect > 1.1) posturaActual = 'de_pie';
+        else if (aspect < 0.8) posturaActual = 'horizontal';
+
+        const detection: Detection = {
+          left: minX,
+          top: minY,
+          right: maxX,
+          bottom: maxY,
+          confidence: Math.min(...buenos.map((k) => k.score)),
+          class: 'persona',
+          posture: posturaActual,
+        };
+
+        const ahora = Date.now();
+        if (posturaActual === 'horizontal') {
+          verticalGapFramesRef.current = 0;
+          horizontalFramesRef.current += 1;
+          if (horizontalFramesRef.current >= HORIZONTAL_FRAMES_TOLERANCE) {
+            if (horizontalStartTimeRef.current === null) {
+              horizontalStartTimeRef.current = ahora;
+              console.log('🕒 Temporizador de caída iniciado');
+            }
+            const elapsed = ahora - horizontalStartTimeRef.current;
+            console.log(`⏱️ Tiempo horizontal acumulado: ${elapsed}ms`);
+            if (elapsed >= TIEMPO_UMBRAL_MS && !showAlert) {
+              console.log('⚠️ CAÍDA DETECTADA');
+              setShowAlertJS(true);
+            }
+          } else {
+            console.log(`📊 Frames horizontales consecutivos: ${horizontalFramesRef.current}`);
+          }
         } else {
-          const elapsed = ahora - horizontalStartTimeRef.current;
-          console.log(`⏱️ Tiempo horizontal: ${elapsed}ms`);
-          if (elapsed >= TIEMPO_UMBRAL_MS && !showAlert) {
-            console.log('⚠️ CAÍDA DETECTADA');
-            setShowAlertJS(true);
+          if (horizontalStartTimeRef.current !== null) {
+            verticalGapFramesRef.current += 1;
+            if (verticalGapFramesRef.current > VERTICAL_GAP_FRAMES) {
+              console.log('🔁 Reiniciando conteo por gap vertical prolongado');
+              horizontalStartTimeRef.current = null;
+              horizontalFramesRef.current = 0;
+              setShowAlertJS(false);
+            } else {
+              console.log(`🕳️ Gap vertical tolerado (${verticalGapFramesRef.current})`);
+            }
           }
         }
-      } else {
-        if (horizontalStartTimeRef.current !== null) {
-          console.log('🔁 Reiniciando temporizador (persona ya no está horizontal)');
-        }
-        horizontalStartTimeRef.current = null;
-        setShowAlertJS(false);
-      }
 
-      posturaAnterior = posturaActual;
-      console.log(`📦 Detección enviada a JS: postura=${posturaActual}, score=${Math.round(bestDetection.confidence * 100)}%`);
-      setDetectionsJS([bestDetection]);
-    } catch (err) {
-      console.error('❌ Error en el procesamiento del frame:', err);
-    }
-  }, [model, resize, setDetectionsJS, setShowAlertJS]);
+        posturaAnterior = posturaActual;
+        setDetectionsJS([detection]);
+      } catch (err) {
+        console.error('❌ Error en el procesamiento del frame:', err);
+      }
+    },
+    [model, resize, setDetectionsJS, setShowAlertJS],
+  );
 
   if (!hasCameraPermission || !device) {
     return (
@@ -182,10 +186,12 @@ export default function CameraComponent() {
         frameProcessorFps={15}
       />
       <View style={styles.controls}>
-        <TouchableOpacity style={styles.button} onPress={() => {
-          console.log(`[UI] Cámara ${isActive ? 'pausada' : 'activada'}`);
-          setIsActive(!isActive);
-        }}>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => {
+            console.log(`[UI] Cámara ${isActive ? 'pausada' : 'activada'}`);
+            setIsActive(!isActive);
+          }}>
           <Text style={styles.buttonText}>{isActive ? 'Pausar' : 'Activar'}</Text>
         </TouchableOpacity>
       </View>
@@ -207,8 +213,7 @@ export default function CameraComponent() {
               height: (d.bottom - d.top) * screenHeight,
               borderColor: d.posture === 'horizontal' ? 'red' : 'green',
             },
-          ]}
-        >
+          ]}>
           <Text style={styles.detectionText}>{Math.round(d.confidence * 100)}%</Text>
         </View>
       ))}
@@ -274,6 +279,8 @@ const styles = StyleSheet.create({
     top: -20,
   },
 });
+
+
 
 
 
