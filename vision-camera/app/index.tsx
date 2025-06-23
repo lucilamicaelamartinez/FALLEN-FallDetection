@@ -1,52 +1,33 @@
-import 'react-native-worklets-core';
-import { Link } from 'expo-router';
-import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+// /app/index.tsx
+import { useEffect, useState } from 'react';
+import { useRouter } from 'expo-router';
+import { useAppContext } from '../contexts/AppContext';
 
+export default function Index() {
+  const router = useRouter();
+  const { user } = useAppContext();
+  const [booted, setBooted] = useState(false);
 
+  useEffect(() => {
+    // Se ejecuta luego del primer render (cuando ya está montado el router)
+    setBooted(true);
+  }, []);
 
-export default function HomePage() {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Vision Camera</Text>
-      <Link href="/camera" asChild>
-        <TouchableOpacity style={styles.button}>
-          <Text style={styles.buttonText}>Abrir Cámara</Text>
-        </TouchableOpacity>
-      </Link>
-    </View>
-  );
+  useEffect(() => {
+    if (!booted) return;
+
+    if (!user) {
+      router.replace('/login');
+    } else if (user.role === 'EMERGENCY_CONTACT') {
+      router.replace('/contactHome');
+    } else {
+      router.replace('/tabs/home');
+    }
+  }, [booted, user]);
+
+  return null;
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 30,
-  },
-  button: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 10,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-}); 
+
+
+

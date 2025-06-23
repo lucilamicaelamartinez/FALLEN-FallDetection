@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
   Camera,
@@ -10,164 +10,170 @@ import {
 import { useTensorflowModel } from 'react-native-fast-tflite';
 import { useResizePlugin } from 'vision-camera-resize-plugin';
 import { useRunOnJS } from 'react-native-worklets-core';
+import { useAppContext } from '../../contexts/AppContext';
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const { width: W, height: H } = Dimensions.get('window');
 
+/* ───── PARÁMETROS DE LA HEURÍSTICA ─────────────────────────── */
+const TIME_THRESHOLD_MS = 10_000;   // ← cambia a 15_000 en prod
+const HORIZONTAL_FRAMES_TOL    = 5;       // frames continuos para arrancar cronómetro
+const GAP_FRAMES_TOL           = 2;       // frames “verticales” tolerados
+const MISSING_FRAMES_TOL       = 6;       // frames sin keypoints antes de reset
+const KEYPOINT_SCORE_MIN       = 0.30;    // confianza mínima de un keypoint
+const MIN_GOOD_KP              = 5;       // # kp con buena confianza
+
+/* ───── TIPOS ───────────────────────────────────────────────── */
 interface Detection {
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
-  confidence: number;
-  class: string;
-  posture: 'de_pie' | 'horizontal';
+  left: number;  top: number;  right: number;  bottom: number;
+  confidence: number; class: string; posture: 'de_pie' | 'horizontal';
 }
 
-let posturaAnterior: Detection['posture'] = 'de_pie';
-const TIEMPO_UMBRAL_MS = 20000;
-const HORIZONTAL_FRAMES_TOLERANCE = 5;
-const VERTICAL_GAP_FRAMES = 10;
+/* ───── REFS COMPARTIDOS ENTRE FRAMES (worklet safe) ────────── */
+let lastPosture: Detection['posture'] = 'de_pie';
 
-const horizontalStartTimeRef = { current: null as number | null };
-const horizontalFramesRef = { current: 0 };
-const verticalGapFramesRef = { current: 0 };
+const horizStartRef     = { current: null as number | null };
+const horizFramesRef    = { current: 0 };
+const gapFramesRef      = { current: 0 };
+const missingFramesRef  = { current: 0 };
 
 export default function CameraComponent() {
-  const { hasPermission: hasCameraPermission, requestPermission: requestCameraPermission } = useCameraPermission();
-  const { hasPermission: hasMicrophonePermission, requestPermission: requestMicrophonePermission } = useMicrophonePermission();
+  /* ── permisos ─────────────────────────────────────────────── */
+  const { hasPermission: camOK, requestPermission: askCam }   = useCameraPermission();
+  const { hasPermission: micOK, requestPermission: askMic }   = useMicrophonePermission();
   const device = useCameraDevice('back');
-  const [isActive, setIsActive] = useState(true);
-  const [detections, setDetections] = useState<Detection[]>([]);
-  const [showAlert, setShowAlert] = useState(false);
 
+  /* ── estado React ─────────────────────────────────────────── */
+  const [isActive,   setIsActive]   = useState(true);
+  const [detections, setDetections] = useState<Detection[]>([]);
+  const [showAlert,  setShowAlert]  = useState(false);
+
+  /* ── contexto ─────────────────────────────────────────────── */
+  const { reportFall }      = useAppContext();
+  const hasReportedRef      = useRef(false);
+
+  /* ── modelo y plugins ─────────────────────────────────────── */
   const poseModel = useTensorflowModel(require('../../assets/models/movenet_lightning_int8.tflite'));
-  const model = poseModel.state === 'loaded' ? poseModel.model : undefined;
+  const model     = poseModel.state === 'loaded' ? poseModel.model : undefined;
   const { resize } = useResizePlugin();
 
+  /* ── bridges worklet → JS ─────────────────────────────────── */
   const setDetectionsJS = useRunOnJS(setDetections, [setDetections]);
-  const setShowAlertJS = useRunOnJS(setShowAlert, [setShowAlert]);
+  const setShowAlertJS  = useRunOnJS(setShowAlert,  [setShowAlert]);
 
-  useEffect(() => {
-    (async () => {
-      if (!hasCameraPermission) await requestCameraPermission();
-      if (!hasMicrophonePermission) await requestMicrophonePermission();
-    })();
-  }, []);
+  /* ── pedir permisos ───────────────────────────────────────── */
+  useEffect(() => { (async()=>{ if(!camOK) await askCam(); if(!micOK) await askMic(); })(); }, []);
 
-  const frameProcessor = useFrameProcessor(
-    (frame) => {
-      'worklet';
-      if (!model) return;
+  /* ───────────────── FRAME PROCESSOR (worklet) ─────────────── */
+  const frameProcessor = useFrameProcessor((frame) => {
+    'worklet';
+    if (!model) return;
 
-      try {
-        const resized = resize(frame, {
-          scale: { width: 192, height: 192 },
-          pixelFormat: 'rgb',
-          dataType: 'uint8',
-          rotation: '90deg',
-        });
+    /* 1 · resize */
+    const img = resize(frame, {
+      scale: { width:192, height:192 },
+      pixelFormat:'rgb', dataType:'uint8', rotation:'90deg',
+    });
+    if (!img?.length) return;
 
-        if (!resized?.length) return;
+    /* 2 · inference */
+    const out = model.runSync([img])[0];
+    const raw = out.data ?? out;
+    if (!raw || raw.length !== 51) return;
 
-        const output = model.runSync([resized])[0];
-        const raw = output.data ?? output;
-        if (!raw || raw.length !== 51) return;
+    /* 3 · keypoints filtrados */
+    const kp = Array.from({length:17},(_,i)=>({
+      y:raw[i*3], x:raw[i*3+1], score:raw[i*3+2],
+    })).filter(k=>k.score > KEYPOINT_SCORE_MIN);
 
-        const keypoints: { x: number; y: number; score: number }[] = [];
-        for (let i = 0; i < 17; i++) {
-          keypoints.push({
-            y: raw[i * 3],
-            x: raw[i * 3 + 1],
-            score: raw[i * 3 + 2],
-          });
-        }
-
-        const buenos = keypoints.filter((kp) => kp.score > 0.3);
-        if (buenos.length < 6) {
-          horizontalFramesRef.current = 0;
-          verticalGapFramesRef.current = 0;
-          horizontalStartTimeRef.current = null;
-          setShowAlertJS(false);
-          setDetectionsJS([]);
-          return;
-        }
-
-        let minX = 1,
-          minY = 1,
-          maxX = 0,
-          maxY = 0;
-        for (const kp of buenos) {
-          if (kp.x < minX) minX = kp.x;
-          if (kp.y < minY) minY = kp.y;
-          if (kp.x > maxX) maxX = kp.x;
-          if (kp.y > maxY) maxY = kp.y;
-        }
-
-        const width = maxX - minX;
-        const height = maxY - minY;
-        const aspect = height / width;
-
-        let posturaActual: 'de_pie' | 'horizontal' = posturaAnterior;
-        if (aspect > 1.1) posturaActual = 'de_pie';
-        else if (aspect < 0.8) posturaActual = 'horizontal';
-
-        const detection: Detection = {
-          left: minX,
-          top: minY,
-          right: maxX,
-          bottom: maxY,
-          confidence: Math.min(...buenos.map((k) => k.score)),
-          class: 'persona',
-          posture: posturaActual,
-        };
-
-        const ahora = Date.now();
-        if (posturaActual === 'horizontal') {
-          verticalGapFramesRef.current = 0;
-          horizontalFramesRef.current += 1;
-          if (horizontalFramesRef.current >= HORIZONTAL_FRAMES_TOLERANCE) {
-            if (horizontalStartTimeRef.current === null) {
-              horizontalStartTimeRef.current = ahora;
-              console.log('🕒 Temporizador de caída iniciado');
-            }
-            const elapsed = ahora - horizontalStartTimeRef.current;
-            console.log(`⏱️ Tiempo horizontal acumulado: ${elapsed}ms`);
-            if (elapsed >= TIEMPO_UMBRAL_MS && !showAlert) {
-              console.log('⚠️ CAÍDA DETECTADA');
-              setShowAlertJS(true);
-            }
-          } else {
-            console.log(`📊 Frames horizontales consecutivos: ${horizontalFramesRef.current}`);
-          }
-        } else {
-          if (horizontalStartTimeRef.current !== null) {
-            verticalGapFramesRef.current += 1;
-            if (verticalGapFramesRef.current > VERTICAL_GAP_FRAMES) {
-              console.log('🔁 Reiniciando conteo por gap vertical prolongado');
-              horizontalStartTimeRef.current = null;
-              horizontalFramesRef.current = 0;
-              setShowAlertJS(false);
-            } else {
-              console.log(`🕳️ Gap vertical tolerado (${verticalGapFramesRef.current})`);
-            }
-          }
-        }
-
-        posturaAnterior = posturaActual;
-        setDetectionsJS([detection]);
-      } catch (err) {
-        console.error('❌ Error en el procesamiento del frame:', err);
+    /* 4 · manejo de frames “vacíos” */
+    if (kp.length < MIN_GOOD_KP) {                    // pocos puntos confiables
+      missingFramesRef.current += 1;
+      if (missingFramesRef.current <= MISSING_FRAMES_TOL) {
+        console.log('⏳ missingFrames', missingFramesRef.current);
+        /* no reseteamos: se mantiene la lógica */
+        return;
       }
-    },
-    [model, resize, setDetectionsJS, setShowAlertJS],
-  );
+      console.log('⚠️ reset (missingFrames > tol)');
+      horizStartRef.current  = null;
+      horizFramesRef.current = 0;
+      gapFramesRef.current   = 0;
+      missingFramesRef.current = 0;
+      setShowAlertJS(false);
+      setDetectionsJS([]);
+      return;
+    }
+    /* si llegamos aquí, tenemos keypoints suficientes */
+    missingFramesRef.current = 0;
 
-  if (!hasCameraPermission || !device) {
+    /* 5 · bounding box y postura */
+    const xs = kp.map(k=>k.x), ys = kp.map(k=>k.y);
+    const minX=Math.min(...xs), maxX=Math.max(...xs);
+    const minY=Math.min(...ys), maxY=Math.max(...ys);
+    const aspect = (maxY-minY) / (maxX-minX);
+
+    let posture: Detection['posture'] = lastPosture;
+    if (aspect > 1.1) posture = 'de_pie';
+    else if (aspect < 0.8) posture = 'horizontal';
+
+    /* 6 · heurística de caída */
+    const now = Date.now();
+
+    if (posture === 'horizontal') {
+      gapFramesRef.current = 0;
+      horizFramesRef.current += 1;
+      console.log('📊 horizFrames', horizFramesRef.current);
+
+      if (horizFramesRef.current >= HORIZONTAL_FRAMES_TOL) {
+        if (horizStartRef.current === null) {
+          horizStartRef.current = now;
+          console.log('🕒 Timer start @', now);
+        } else {
+          const elapsed = now - horizStartRef.current;
+          console.log('⏱ elapsed=', elapsed, 'ms');
+          if (elapsed >= TIME_THRESHOLD_MS && !showAlert) {
+            console.log('🚨 CAÍDA DETECTADA');
+            setShowAlertJS(true);
+          }
+        }
+      }
+    } else { /* posture == de_pie */
+      gapFramesRef.current += 1;
+      if (gapFramesRef.current > GAP_FRAMES_TOL) {
+        console.log('🔄 reset gap (gapFrames=', gapFramesRef.current, ')');
+        horizStartRef.current  = null;
+        horizFramesRef.current = 0;
+        gapFramesRef.current   = 0;
+        setShowAlertJS(false);
+      } else {
+        console.log('🕳 gapFrames', gapFramesRef.current);
+      }
+    }
+    lastPosture = posture;
+
+    /* 7 · enviar detección al hilo JS */
+    setDetectionsJS([{
+      left:minX, top:minY, right:maxX, bottom:maxY,
+      confidence: Math.min(...kp.map(k=>k.score)),
+      class:'persona', posture,
+    }]);
+  }, [model, resize, setDetectionsJS, setShowAlertJS]);
+
+  /* ── efecto: cuando showAlert=true ⇒ reportFall ───────────── */
+  useEffect(() => {
+    if (showAlert && !hasReportedRef.current) {
+      hasReportedRef.current = true;
+      reportFall().catch(err=>console.warn('reportFall error',err));
+    }
+    if (!showAlert) hasReportedRef.current = false;
+  }, [showAlert]);
+
+  /* ── UI ───────────────────────────────────────────────────── */
+  if (!camOK || !device) {
     return (
       <View style={styles.container}>
-        <Text style={styles.text}>Permiso de cámara no otorgado o no se encontró cámara</Text>
-        <TouchableOpacity style={styles.button} onPress={requestCameraPermission}>
-          <Text style={styles.buttonText}>Solicitar permiso</Text>
+        <Text style={styles.text}>No camera permission / no device</Text>
+        <TouchableOpacity style={styles.button} onPress={askCam}>
+          <Text style={styles.buttonText}>Grant camera</Text>
         </TouchableOpacity>
       </View>
     );
@@ -176,109 +182,59 @@ export default function CameraComponent() {
   return (
     <View style={styles.container}>
       <Camera
-        style={StyleSheet.absoluteFill}
+        style={StyleSheet.absoluteFillObject}
         device={device}
         isActive={isActive}
-        photo={false}
-        video={false}
-        pixelFormat="rgb"
         frameProcessor={frameProcessor}
         frameProcessorFps={15}
       />
+      {/* controles */}
       <View style={styles.controls}>
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => {
-            console.log(`[UI] Cámara ${isActive ? 'pausada' : 'activada'}`);
-            setIsActive(!isActive);
-          }}>
-          <Text style={styles.buttonText}>{isActive ? 'Pausar' : 'Activar'}</Text>
+        <TouchableOpacity style={styles.button} onPress={()=>setIsActive(p=>!p)}>
+          <Text style={styles.buttonText}>{isActive ? 'Pause' : 'Resume'}</Text>
         </TouchableOpacity>
       </View>
+      {/* stats */}
       <View style={styles.stats}>
-        <Text style={styles.statsText}>Personas detectadas: {detections.length}</Text>
-        {showAlert && (
-          <Text style={[styles.statsText, { backgroundColor: '#FF5555' }]}>⚠️ Caída detectada</Text>
-        )}
+        <Text style={styles.statsText}>People: {detections.length}</Text>
+        {showAlert && <Text style={[styles.statsText,{backgroundColor:'#FF5555'}]}>⚠ Fall detected</Text>}
       </View>
-      {detections.map((d, index) => (
-        <View
-          key={index}
-          style={[
-            styles.detectionBox,
-            {
-              left: d.left * screenWidth,
-              top: d.top * screenHeight,
-              width: (d.right - d.left) * screenWidth,
-              height: (d.bottom - d.top) * screenHeight,
-              borderColor: d.posture === 'horizontal' ? 'red' : 'green',
-            },
-          ]}>
-          <Text style={styles.detectionText}>{Math.round(d.confidence * 100)}%</Text>
+      {/* bbox */}
+      {detections.map((d,i)=>(
+        <View key={i} style={[
+          styles.detectionBox,
+          {
+            left:d.left*W, top:d.top*H,
+            width:(d.right-d.left)*W, height:(d.bottom-d.top)*H,
+            borderColor:d.posture==='horizontal'?'red':'green',
+          }
+        ]}>
+          <Text style={styles.detectionText}>{Math.round(d.confidence*100)}%</Text>
         </View>
       ))}
     </View>
   );
 }
 
+/* ───── styles ─────────────────────────────────────────────── */
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'black',
-  },
-  text: {
-    color: 'white',
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 20,
-  },
-  controls: {
-    position: 'absolute',
-    bottom: 40,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  button: {
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    padding: 15,
-    borderRadius: 8,
-    marginHorizontal: 10,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-  },
-  stats: {
-    position: 'absolute',
-    top: 40,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    gap: 8,
-  },
-  statsText: {
-    color: 'white',
-    fontSize: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    padding: 10,
-    borderRadius: 8,
-  },
-  detectionBox: {
-    position: 'absolute',
-    borderWidth: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  detectionText: {
-    color: 'white',
-    fontSize: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    padding: 4,
-    position: 'absolute',
-    top: -20,
-  },
+  container:{ flex:1, backgroundColor:'black' },
+  text:{ color:'white', textAlign:'center', marginTop:20 },
+  controls:{ position:'absolute', bottom:40, left:0, right:0, alignItems:'center' },
+  button:{ backgroundColor:'rgba(255,255,255,0.3)', padding:15, borderRadius:8 },
+  buttonText:{ color:'white', fontSize:16 },
+  stats:{ position:'absolute', top:40, left:0, right:0, alignItems:'center', gap:8 },
+  statsText:{ color:'white', padding:8, backgroundColor:'rgba(0,0,0,0.5)', borderRadius:8 },
+  detectionBox:{ position:'absolute', borderWidth:2, backgroundColor:'rgba(255,255,255,0.1)' },
+  detectionText:{ color:'white', fontSize:12, backgroundColor:'rgba(0,0,0,0.7)', padding:2 },
 });
+
+
+
+
+
+
+
 
 
 
