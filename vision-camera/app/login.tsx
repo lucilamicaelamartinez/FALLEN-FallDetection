@@ -18,7 +18,7 @@ const { width } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login } = useAppContext();        // <-- usamos la función del contexto
+  const { login } = useAppContext();
 
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
@@ -32,8 +32,8 @@ export default function LoginScreen() {
 
     try {
       setLoading(true);
-      await login(email.trim(), password);  // <-- llamada al backend
-      router.replace('/');                 // el index redirige según rol
+      await login(email.trim(), password);
+      router.replace('/');          // el index redirige según rol
     } catch (e) {
       Alert.alert('Login failed', (e as Error).message);
     } finally {
@@ -43,7 +43,7 @@ export default function LoginScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {/* Imagen splash arriba */}
+      {/* Imagen splash */}
       <Image
         source={require('../assets/images/home.png')}
         style={styles.image}
@@ -57,6 +57,7 @@ export default function LoginScreen() {
         <TextInput
           style={styles.input}
           placeholder="Email"
+          placeholderTextColor="#777"
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -66,13 +67,20 @@ export default function LoginScreen() {
         <TextInput
           style={styles.input}
           placeholder="Password"
+          placeholderTextColor="#777"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
         />
 
-        <Button title={loading ? 'Loading...' : 'Login'} onPress={handleLogin} disabled={loading} />
+        <Button
+          title={loading ? 'Loading...' : 'Login'}
+          onPress={handleLogin}
+          disabled={loading}
+        />
+
         <View style={{ height: 10 }} />
+
         <Button
           title="Register"
           color="gray"
@@ -85,11 +93,18 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:     { flexGrow: 1, backgroundColor: '#061833', alignItems: 'center' },
-  image:         { width, height: width },                  // cuadrada
-  form:          { width: '85%', padding: 20, backgroundColor: '#061833' },
-  title:         { fontSize: 24, color: '#fff', textAlign: 'center', marginBottom: 16 },
-  input:         { backgroundColor: '#fff', padding: 10, borderRadius: 6, marginBottom: 12 },
+  container: { flexGrow: 1, backgroundColor: '#061833', alignItems: 'center' },
+  image:     { width, height: width },
+  form:      { width: '85%', padding: 20, backgroundColor: '#061833' },
+  title:     { fontSize: 24, color: '#fff', textAlign: 'center', marginBottom: 16 },
+  input: {
+    backgroundColor: '#fff',
+    color: '#000',           // ← texto negro sobre fondo blanco
+    padding: 10,
+    borderRadius: 6,
+    marginBottom: 12,
+  },
 });
+
 
 

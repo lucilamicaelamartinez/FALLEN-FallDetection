@@ -8,6 +8,7 @@ export interface IUser {
   name: string;
   email: string;
   role: 'ELDERLY_PERSON' | 'EMERGENCY_CONTACT';
+  phoneNumber?: string;
 }
 export interface IEvent {
   id: number;

@@ -9,22 +9,62 @@ export default function ContactHomeScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.welcome}>
-        Welcome, {user?.email ?? 'Contact user'}
-      </Text>
+      <View style={styles.card}>
+        <Text style={styles.welcome}>
+          Welcome, {user?.email ?? 'Contact user'}
+        </Text>
+        <Text style={styles.info}>No recent alerts.</Text>
+      </View>
 
-      <Text style={styles.info}>No recent alerts.</Text>
-
-      <Button title="View fall logs"     onPress={() => router.push('/tabs/logs')} />
-      <Button title="View contacts"      onPress={() => router.push('/tabs/contacts')} />
+      <View style={styles.buttonContainer}>
+        <View style={styles.buttonWrapper}>
+          <Button title="View fall logs" onPress={() => router.push('/tabs/logs')} />
+        </View>
+        <View style={styles.buttonWrapper}>
+          <Button title="View contacts" onPress={() => router.push('/tabs/contacts')} />
+        </View>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, justifyContent: 'center', alignItems: 'center' },
-  welcome: { fontSize: 20, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' },
-  info: { marginBottom: 24, fontSize: 16, color: '#555' },
+  container: {
+    flex: 1,
+    backgroundColor: '#061833',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  card: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 40,
+    elevation: 3,
+    alignItems: 'center',
+  },
+  welcome: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#061833',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  info: {
+    fontSize: 16,
+    color: '#555',
+    textAlign: 'center',
+  },
+  buttonContainer: {
+    width: '100%',
+  },
+  buttonWrapper: {
+    marginBottom: 16,
+    width: '100%',
+  },
 });
+
 
 
