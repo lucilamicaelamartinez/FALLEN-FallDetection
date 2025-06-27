@@ -12,7 +12,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAppContext } from '../contexts/AppContext';
+import { useAppContext } from '../contexts/AppContext';   // 👈  sin registerPushToken
 
 const { width } = Dimensions.get('window');
 
@@ -20,9 +20,9 @@ export default function LoginScreen() {
   const router = useRouter();
   const { login } = useAppContext();
 
-  const [email, setEmail]       = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading]   = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -32,8 +32,8 @@ export default function LoginScreen() {
 
     try {
       setLoading(true);
-      await login(email.trim(), password);
-      router.replace('/');          // el index redirige según rol
+      await login(email.trim(), password);   // 🔐  login ya registra el push-token
+      router.replace('/');                  // redirige según rol
     } catch (e) {
       Alert.alert('Login failed', (e as Error).message);
     } finally {
@@ -43,14 +43,14 @@ export default function LoginScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {/* Imagen splash */}
+      {/* Splash image */}
       <Image
         source={require('../assets/images/home.png')}
         style={styles.image}
         resizeMode="cover"
       />
 
-      {/* Formulario */}
+      {/* Form */}
       <View style={styles.form}>
         <Text style={styles.title}>Login</Text>
 
@@ -74,7 +74,7 @@ export default function LoginScreen() {
         />
 
         <Button
-          title={loading ? 'Loading...' : 'Login'}
+          title={loading ? 'Loading…' : 'Login'}
           onPress={handleLogin}
           disabled={loading}
         />
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
   title:     { fontSize: 24, color: '#fff', textAlign: 'center', marginBottom: 16 },
   input: {
     backgroundColor: '#fff',
-    color: '#000',           // ← texto negro sobre fondo blanco
+    color: '#000',
     padding: 10,
     borderRadius: 6,
     marginBottom: 12,
