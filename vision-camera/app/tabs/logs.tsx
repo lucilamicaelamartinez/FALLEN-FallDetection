@@ -10,12 +10,14 @@ import {
   Image,
   RefreshControl,
   ListRenderItem,
+  TouchableOpacity,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { AppContext, IEvent } from '../../contexts/AppContext';
+import moment from 'moment';
 
 export default function LogsScreen() {
-  const { logs, loadLogs } = useContext(AppContext);
+  const { logs, loadLogs, registerPushToken } = useContext(AppContext);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchLogs = async () => {
@@ -26,9 +28,15 @@ export default function LogsScreen() {
     }
   };
 
-  useEffect(() => { fetchLogs(); }, []);
+  useEffect(() => {
+    fetchLogs();
+  }, []);
 
-  useFocusEffect(useCallback(() => { fetchLogs(); }, []));
+  useFocusEffect(
+    useCallback(() => {
+      fetchLogs();
+    }, [])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -36,17 +44,19 @@ export default function LogsScreen() {
   };
 
   const renderItem: ListRenderItem<IEvent> = ({ item }) => {
-    const localTime = new Date(item.timestamp).toLocaleString('es-AR', {
-      timeZone: 'America/Argentina/Buenos_Aires',
-      hour12: false,
-    });
-    const location = item.location ?? 'Ubicación desconocida';
+    const timestamp = moment.parseZone(item.timestamp);
+    const formatted = timestamp.format('YYYY-MM-DD HH:mm:ss');
+    const relative = timestamp.fromNow();
 
     return (
       <View style={styles.logCard}>
         <View style={styles.row}>
           {item.screenshotUri ? (
-            <Image source={{ uri: item.screenshotUri }} style={styles.thumb} />
+            <Image
+              source={{ uri: item.screenshotUri }}
+              style={styles.thumb}
+              resizeMode="cover"
+            />
           ) : (
             <View style={[styles.thumb, styles.thumbFallback]}>
               <Text style={styles.thumbText}>⚠</Text>
@@ -54,8 +64,11 @@ export default function LogsScreen() {
           )}
 
           <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.logTime}>{localTime}</Text>
-            <Text style={styles.logLoc}>{location}</Text>
+            <Text style={styles.logTime}>{formatted}</Text>
+            <Text style={styles.logRel}>{relative}</Text>
+            <Text style={styles.logLoc}>
+              {item.location || 'Location not available'}
+            </Text>
           </View>
         </View>
 
@@ -70,14 +83,24 @@ export default function LogsScreen() {
     );
   };
 
+  const sortedLogs = [...logs].sort((a, b) => {
+    const tA = moment.parseZone(a.timestamp).valueOf();
+    const tB = moment.parseZone(b.timestamp).valueOf();
+    return tB - tA;
+  });
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Fall Logs</Text>
 
-      {logs.length ? (
+      <TouchableOpacity onPress={registerPushToken} style={styles.manualBtn}>
+        <Text style={styles.manualText}>Register Push Token</Text>
+      </TouchableOpacity>
+
+      {sortedLogs.length ? (
         <FlatList
-          data={logs}
-          keyExtractor={(_, i) => i.toString()}
+          data={sortedLogs}
+          keyExtractor={(item) => String(item.id ?? Math.random())}
           renderItem={renderItem}
           contentContainerStyle={{ paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}
@@ -86,7 +109,7 @@ export default function LogsScreen() {
           }
         />
       ) : (
-        <Text style={styles.empty}>No hay registros aún.</Text>
+        <Text style={styles.empty}>No events yet.</Text>
       )}
     </View>
   );
@@ -104,7 +127,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
+  },
+  manualBtn: {
+    alignSelf: 'center',
+    marginBottom: 14,
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#2a4d90',
+  },
+  manualText: {
+    color: 'white',
+    fontWeight: '600',
   },
   logCard: {
     backgroundColor: '#fff',
@@ -117,17 +151,37 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
-  row: { flexDirection: 'row', alignItems: 'center' },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   thumb: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#ddd',
+    backgroundColor: '#ccc',
   },
-  thumbFallback: { justifyContent: 'center', alignItems: 'center' },
-  thumbText: { fontSize: 18 },
-  logTime: { fontSize: 16, fontWeight: '600', color: '#333' },
-  logLoc: { fontSize: 14, color: '#666' },
+  thumbFallback: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#eee',
+  },
+  thumbText: {
+    fontSize: 18,
+  },
+  logTime: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  logRel: {
+    fontSize: 13,
+    color: '#888',
+  },
+  logLoc: {
+    fontSize: 14,
+    color: '#666',
+  },
   screenshot: {
     width: '100%',
     height: 220,
@@ -142,6 +196,13 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
 });
+
+
+
+
+
+
+
 
 
 
