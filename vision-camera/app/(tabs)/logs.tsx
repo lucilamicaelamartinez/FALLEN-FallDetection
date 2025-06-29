@@ -1,5 +1,5 @@
 //----------------------------------------------
-// app/tabs/logs.tsx
+// app/(tabs)/logs.tsx
 //----------------------------------------------
 import React, { useCallback, useContext, useEffect, useState } from 'react';
 import {
@@ -11,13 +11,14 @@ import {
   RefreshControl,
   ListRenderItem,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { AppContext, IEvent } from '../../contexts/AppContext';
 import moment from 'moment';
 
 export default function LogsScreen() {
-  const { logs, loadLogs, registerPushToken } = useContext(AppContext);
+  const { logs, loadLogs, registerPushToken, clearLogs } = useContext(AppContext);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchLogs = async () => {
@@ -43,8 +44,23 @@ export default function LogsScreen() {
     fetchLogs();
   };
 
+  const handleClearLogs = () => {
+    Alert.alert(
+      'Confirmation',
+      'Are you sure you want to delete all logs?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => clearLogs(),
+        },
+      ]
+    );
+  };
+
   const renderItem: ListRenderItem<IEvent> = ({ item }) => {
-    const timestamp = moment.parseZone(item.timestamp);
+    const timestamp = moment.utc(item.timestamp).local();
     const formatted = timestamp.format('YYYY-MM-DD HH:mm:ss');
     const relative = timestamp.fromNow();
 
@@ -62,12 +78,11 @@ export default function LogsScreen() {
               <Text style={styles.thumbText}>⚠</Text>
             </View>
           )}
-
           <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={styles.logTime}>{formatted}</Text>
             <Text style={styles.logRel}>{relative}</Text>
             <Text style={styles.logLoc}>
-              {item.location || 'Location not available'}
+              {item.location || 'No location provided'}
             </Text>
           </View>
         </View>
@@ -84,8 +99,8 @@ export default function LogsScreen() {
   };
 
   const sortedLogs = [...logs].sort((a, b) => {
-    const tA = moment.parseZone(a.timestamp).valueOf();
-    const tB = moment.parseZone(b.timestamp).valueOf();
+    const tA = moment.utc(a.timestamp).local().valueOf();
+    const tB = moment.utc(b.timestamp).local().valueOf();
     return tB - tA;
   });
 
@@ -95,6 +110,10 @@ export default function LogsScreen() {
 
       <TouchableOpacity onPress={registerPushToken} style={styles.manualBtn}>
         <Text style={styles.manualText}>Register Push Token</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={handleClearLogs} style={styles.deleteBtn}>
+        <Text style={styles.deleteText}>🗑 Delete All Logs</Text>
       </TouchableOpacity>
 
       {sortedLogs.length ? (
@@ -109,7 +128,7 @@ export default function LogsScreen() {
           }
         />
       ) : (
-        <Text style={styles.empty}>No events yet.</Text>
+        <Text style={styles.empty}>No fall events yet.</Text>
       )}
     </View>
   );
@@ -137,6 +156,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#2a4d90',
   },
   manualText: {
+    color: 'white',
+    fontWeight: '600',
+  },
+  deleteBtn: {
+    alignSelf: 'center',
+    marginBottom: 14,
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#902a2a',
+  },
+  deleteText: {
     color: 'white',
     fontWeight: '600',
   },
@@ -196,6 +226,8 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
 });
+
+
 
 
 

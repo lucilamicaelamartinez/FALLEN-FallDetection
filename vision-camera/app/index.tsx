@@ -23,9 +23,9 @@ export default function Index() {
     if (!user) {
       router.replace('/login');
     } else if (user.role === 'EMERGENCY_CONTACT') {
-      router.replace('/contactHome');
+      router.replace('/(tabs)/home');
     } else if (user.role === 'ELDERLY_PERSON') {
-      router.replace('/tabs/home');
+      router.replace('/(tabs)/home');
     }
   }, [booted, user, notificationRedirect]);
 

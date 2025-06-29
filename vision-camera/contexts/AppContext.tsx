@@ -1,11 +1,14 @@
-// ────────────────────────────────────────────────
-// contexts/AppContext.tsx – Push navigation support
-// ────────────────────────────────────────────────
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  ReactNode,
+} from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
 import { router } from 'expo-router';
 import { api } from '../api/api';
 
@@ -17,6 +20,12 @@ export interface IUser {
   role: 'ELDERLY_PERSON' | 'EMERGENCY_CONTACT';
   phoneNumber?: string;
   expoPushToken?: string;
+  elderlyPersons?: {
+    id: number;
+    name: string;
+    phoneNumber?: string;
+    email: string;
+  }[];
 }
 
 export interface IEvent {
@@ -26,7 +35,9 @@ export interface IEvent {
   screenshotUri?: string;
 }
 
-interface LoginResp { token: string }
+interface LoginResp {
+  token: string;
+}
 
 type RegisterPayload = {
   name: string;
@@ -44,20 +55,16 @@ interface Ctx {
   logs: IEvent[];
   screenshots: string[];
   waitingMs: number;
-
   login(email: string, password: string): Promise<void>;
   register(data: RegisterPayload): Promise<void>;
   logout(): void;
-
   loadContacts(): Promise<void>;
   loadLogs(): Promise<void>;
-
   reportFall(): Promise<number | null>;
   addScreenshot(uri: string, eventId?: number): Promise<void>;
-
   registerPushToken(): Promise<void>;
   updateWaitingMs(ms: number): Promise<void>;
-
+  clearLogs(): Promise<void>; // 👈 NUEVO
   notificationRedirect: boolean;
   setNotificationRedirect: (val: boolean) => void;
 }
@@ -66,10 +73,10 @@ export const AppContext = createContext<Ctx>({} as Ctx);
 export const useAppContext = () => useContext(AppContext);
 
 /* ─── Constants ─── */
-const PROJECT_ID      = '5724bbe6-e00b-4e9e-9cb3-22ed66f1399b';
-const TOKEN_KEY       = '@fallen_token';
-const USER_KEY        = '@fallen_user';
-const WAIT_KEY        = '@fallen_wait_ms';
+const PROJECT_ID = '5724bbe6-e00b-4e9e-9cb3-22ed66f1399b';
+const TOKEN_KEY = '@fallen_token';
+const USER_KEY = '@fallen_user';
+const WAIT_KEY = '@fallen_wait_ms';
 const DEFAULT_WAIT_MS = 10000;
 
 /* ─── Push Notifications ─── */
@@ -101,23 +108,27 @@ async function sendExpoPush(to: string, title: string, body: string) {
       body,
       sound: 'default',
       channelId: 'falls',
-      data: { screen: '/logs' }, // <- actualizado
+      data: { screen: '/(tabs)/logs' },
     }),
   });
 }
 
 /* ─── Context Provider ─── */
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser]           = useState<IUser | null>(null);
-  const [token, setToken]         = useState<string | null>(null);
-  const [contacts, setContacts]   = useState<IUser[]>([]);
-  const [logs, setLogs]           = useState<IEvent[]>([]);
-  const [screenshots, setShots]   = useState<string[]>([]);
+interface AppProviderProps {
+  children: ReactNode;
+}
+
+export const AppProvider = ({ children }: AppProviderProps) => {
+  const [user, setUser] = useState<IUser | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [contacts, setContacts] = useState<IUser[]>([]);
+  const [logs, setLogs] = useState<IEvent[]>([]);
+  const [screenshots, setShots] = useState<string[]>([]);
   const [waitingMs, setWaitingMs] = useState(DEFAULT_WAIT_MS);
-  const [notificationRedirect, setNotificationRedirect] = useState(false); // ✅
+  const [notificationRedirect, setNotificationRedirect] = useState(false);
 
   const notifListener = useRef<Notifications.Subscription>();
-  const respListener  = useRef<Notifications.Subscription>();
+  const respListener = useRef<Notifications.Subscription>();
 
   useEffect(() => {
     Notifications.setNotificationChannelAsync('falls', {
@@ -135,7 +146,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setToken(tk[1]);
         const parsed = JSON.parse(usr[1]);
         setUser(parsed);
-        loadLogs(tk[1]);
+        loadLogs(tk[1], parsed);
         if (parsed.role === 'ELDERLY_PERSON') loadContacts(tk[1]);
         registerPushToken();
       }
@@ -145,13 +156,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     notifListener.current = Notifications.addNotificationReceivedListener(() => {});
     respListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      setNotificationRedirect(true); // ✅
+      setNotificationRedirect(true);
       const screen = response.notification.request.content.data?.screen;
-      if (typeof screen === 'string') {
-        router.push(screen);
-      } else {
-        router.push('/logs');
-      }
+      router.push(typeof screen === 'string' ? screen : '/(tabs)/logs');
     });
     return () => {
       notifListener.current?.remove();
@@ -165,10 +172,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setContacts(data);
   };
 
-  const loadLogs = async (t: string | null = token) => {
-    if (!t) return;
-    const data = await api<IEvent[]>('/events', 'GET', t);
-    setLogs(data.reverse());
+  const loadLogs = async (t: string | null = token, currentUser: IUser | null = user) => {
+    if (!t || !currentUser) return;
+    const result = await api<IEvent[]>('/events', 'GET', t);
+    const sorted = result.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    setLogs(sorted);
   };
 
   const registerPushToken = async () => {
@@ -188,17 +196,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     AsyncStorage.setItem(TOKEN_KEY, tk);
     AsyncStorage.setItem(USER_KEY, JSON.stringify(me));
     if (me.role === 'ELDERLY_PERSON') await loadContacts(tk);
-    await loadLogs(tk);
+    await loadLogs(tk, me);
     registerPushToken();
   };
 
   const register = (data: RegisterPayload) => api('/register', 'POST', undefined, data);
 
   const reportFall = async (): Promise<number | null> => {
-    if (!token) return null;
-    const ev: IEvent = { timestamp: new Date().toISOString(), location: 'home' };
+    if (!token || !user) return null;
+    const ev: IEvent = {
+      timestamp: new Date().toISOString(),
+      location: 'home',
+    };
     const saved = await api<IEvent>('/events', 'POST', token, ev);
-    setLogs((prev) => [saved, ...prev]);
+    await loadLogs(token, user);
     contacts
       .filter((c) => c.expoPushToken)
       .forEach((c) =>
@@ -209,21 +220,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addScreenshot = async (uri: string, eventId?: number) => {
     setShots((s) => [uri, ...s]);
-    setLogs((prev) =>
-      prev.map((e) =>
-        e.id === eventId ? { ...e, screenshotUri: uri } : e
-      )
-    );
     if (token && eventId) {
       await api(`/events/${eventId}/screenshot`, 'PATCH', token, {
         screenshotUri: uri,
       });
+      await loadLogs(token, user);
     }
   };
 
   const updateWaitingMs = async (ms: number) => {
     await AsyncStorage.setItem(WAIT_KEY, String(ms));
     setWaitingMs(ms);
+  };
+
+  const clearLogs = async () => {
+    if (!token) return;
+    await api('/events/clear', 'DELETE', token); // ← asegúrate de tener este endpoint en el backend
+    setLogs([]);
   };
 
   const logout = () => {
@@ -254,14 +267,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         registerPushToken,
         updateWaitingMs,
         logout,
+        clearLogs,
         notificationRedirect,
-        setNotificationRedirect, // ✅ incluido en el context
+        setNotificationRedirect,
       }}
     >
       {children}
     </AppContext.Provider>
   );
 };
+
+
+
+
+
+
+
+
+
+
 
 
 
