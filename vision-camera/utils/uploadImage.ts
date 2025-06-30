@@ -1,6 +1,6 @@
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { storage } from '../libs/firebaseConfig';
-import uuid from 'react-native-uuid'; // ✅ compatible con React Native
+import uuid from 'react-native-uuid'; // 
 
 export async function uploadImageAsync(uri: string): Promise<string | null> {
   try {
@@ -11,7 +11,7 @@ export async function uploadImageAsync(uri: string): Promise<string | null> {
     console.log('📦 Tamaño del blob:', blob.size);
 
     const path = `screenshots/${uuid.v4()}.jpg`;
-    const storageRef = ref(storage, path); // También podrías usar: ref(storage).child(path)
+    const storageRef = ref(storage, path); 
 
     const metadata = {
       contentType: 'image/jpeg',

@@ -6,7 +6,7 @@ const firebaseConfig = {
   apiKey: 'AIzaSyCd38Gda9NZl2QitMt8DkX3BzhglKXgAIM',
   authDomain: 'fallen-falldetection.firebaseapp.com',
   projectId: 'fallen-falldetection',
-  storageBucket: 'fallen-falldetection.firebasestorage.app', // ✅ bucket correcto
+  storageBucket: 'fallen-falldetection.firebasestorage.app', 
   messagingSenderId: '896516601726',
   appId: '1:896516601726:android:2bbf8822d895d0a210e52f',
 };

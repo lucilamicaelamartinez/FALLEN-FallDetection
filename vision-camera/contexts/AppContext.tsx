@@ -10,9 +10,8 @@ import React, {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import { router } from 'expo-router';
 import { api } from '../api/api';
-import { uploadScreenshotToFirebase } from '../libs/uploadScreenshotToFirebase'; // ← corrección aquí
+import { uploadScreenshotToFirebase } from '../libs/uploadScreenshotToFirebase';
 
 export interface IUser {
   id: number;
@@ -70,6 +69,10 @@ interface Ctx {
 
 export const AppContext = createContext<Ctx>({} as Ctx);
 export const useAppContext = () => useContext(AppContext);
+
+// 👇 nueva exportación para el redireccionamiento por notificación
+const notificationRedirect = useRef<string | null>(null);
+export const useNotificationRedirect = () => notificationRedirect;
 
 const PROJECT_ID = '5724bbe6-e00b-4e9e-9cb3-22ed66f1399b';
 const TOKEN_KEY = '@fallen_token';
@@ -148,7 +151,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
   useEffect(() => {
     notificationResponseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
       const screen = response.notification.request.content.data?.screen;
-      if (screen) router.replace(screen);
+      if (screen) notificationRedirect.current = screen; // 👈 redirección en index
     });
     return () => {
       notificationResponseListener.current?.remove();
@@ -209,7 +212,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     setShots((s) => [uri, ...s]);
     if (!token || !eventId) return;
 
-    const uploaded = await uploadScreenshotToFirebase(uri); // ← función corregida
+    const uploaded = await uploadScreenshotToFirebase(uri);
     if (!uploaded) return;
 
     await api(`/events/${eventId}/screenshot`, 'PATCH', token, {
@@ -236,7 +239,6 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     setLogs([]);
     setShots([]);
     AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
-    router.replace('/login');
   };
 
   return (
@@ -264,6 +266,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     </AppContext.Provider>
   );
 };
+
 
 
 

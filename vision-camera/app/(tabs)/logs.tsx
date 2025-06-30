@@ -16,10 +16,12 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { AppContext, IEvent } from '../../contexts/AppContext';
 import moment from 'moment';
+import ImageViewing from 'react-native-image-viewing';
 
 export default function LogsScreen() {
-  const { logs, loadLogs, registerPushToken, clearLogs } = useContext(AppContext);
+  const { logs, loadLogs, clearLogs } = useContext(AppContext);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const fetchLogs = async () => {
     try {
@@ -88,11 +90,13 @@ export default function LogsScreen() {
         </View>
 
         {item.screenshotUri && (
-          <Image
-            source={{ uri: item.screenshotUri }}
-            style={styles.screenshot}
-            resizeMode="cover"
-          />
+          <TouchableOpacity onPress={() => setSelectedImage(item.screenshotUri!)}>
+            <Image
+              source={{ uri: item.screenshotUri }}
+              style={styles.screenshot}
+              resizeMode="cover"
+            />
+          </TouchableOpacity>
         )}
       </View>
     );
@@ -107,10 +111,6 @@ export default function LogsScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Fall Logs</Text>
-
-      <TouchableOpacity onPress={registerPushToken} style={styles.manualBtn}>
-        <Text style={styles.manualText}>Register Push Token</Text>
-      </TouchableOpacity>
 
       <TouchableOpacity onPress={handleClearLogs} style={styles.deleteBtn}>
         <Text style={styles.deleteText}>🗑 Delete All Logs</Text>
@@ -130,6 +130,16 @@ export default function LogsScreen() {
       ) : (
         <Text style={styles.empty}>No fall events yet.</Text>
       )}
+
+      {/* Modal de imagen */}
+      {selectedImage && (
+        <ImageViewing
+          images={[{ uri: selectedImage }]}
+          imageIndex={0}
+          visible={true}
+          onRequestClose={() => setSelectedImage(null)}
+        />
+      )}
     </View>
   );
 }
@@ -147,17 +157,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     textAlign: 'center',
     marginBottom: 16,
-  },
-  manualBtn: {
-    alignSelf: 'center',
-    marginBottom: 14,
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#2a4d90',
-  },
-  manualText: {
-    color: 'white',
-    fontWeight: '600',
   },
   deleteBtn: {
     alignSelf: 'center',
@@ -226,6 +225,8 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
 });
+
+
 
 
 

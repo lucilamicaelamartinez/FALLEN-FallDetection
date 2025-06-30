@@ -1,12 +1,12 @@
-// app/index.tsx
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAppContext } from '../contexts/AppContext';
+import { useAppContext, useNotificationRedirect } from '../contexts/AppContext';
 
 export default function Index() {
   const router = useRouter();
   const { user } = useAppContext();
+  const redirect = useNotificationRedirect(); // 🔁 contiene la ruta desde la notificación
   const [booted, setBooted] = useState(false);
 
   useEffect(() => {
@@ -19,6 +19,9 @@ export default function Index() {
 
     if (!user) {
       router.replace('/login');
+    } else if (redirect.current) {
+      router.replace(redirect.current as never); // ✅ corregido para evitar el error de tipo
+      redirect.current = null; // limpiamos para que no se repita
     } else {
       router.replace('/(tabs)/home'); // navegación normal
     }
@@ -30,6 +33,8 @@ export default function Index() {
     </View>
   );
 }
+
+
 
 
 
