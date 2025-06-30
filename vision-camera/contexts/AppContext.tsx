@@ -1,3 +1,4 @@
+// contexts/AppContext.tsx
 import React, {
   createContext,
   useContext,
@@ -11,8 +12,8 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import { api } from '../api/api';
+import { uploadScreenshotToFirebase } from '../libs/uploadScreenshotToFirebase'; // ← corrección aquí
 
-/* ─── Types ─── */
 export interface IUser {
   id: number;
   name: string;
@@ -64,26 +65,21 @@ interface Ctx {
   addScreenshot(uri: string, eventId?: number): Promise<void>;
   registerPushToken(): Promise<void>;
   updateWaitingMs(ms: number): Promise<void>;
-  clearLogs(): Promise<void>; // 👈 NUEVO
-  notificationRedirect: boolean;
-  setNotificationRedirect: (val: boolean) => void;
+  clearLogs(): Promise<void>;
 }
 
 export const AppContext = createContext<Ctx>({} as Ctx);
 export const useAppContext = () => useContext(AppContext);
 
-/* ─── Constants ─── */
 const PROJECT_ID = '5724bbe6-e00b-4e9e-9cb3-22ed66f1399b';
 const TOKEN_KEY = '@fallen_token';
 const USER_KEY = '@fallen_user';
 const WAIT_KEY = '@fallen_wait_ms';
 const DEFAULT_WAIT_MS = 10000;
 
-/* ─── Push Notifications ─── */
 async function getExpoPushToken(): Promise<string | null> {
   try {
     if (!Device.isDevice) return null;
-
     let { status } = await Notifications.getPermissionsAsync();
     if (status !== 'granted') {
       const req = await Notifications.requestPermissionsAsync();
@@ -113,7 +109,6 @@ async function sendExpoPush(to: string, title: string, body: string) {
   });
 }
 
-/* ─── Context Provider ─── */
 interface AppProviderProps {
   children: ReactNode;
 }
@@ -125,10 +120,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
   const [logs, setLogs] = useState<IEvent[]>([]);
   const [screenshots, setShots] = useState<string[]>([]);
   const [waitingMs, setWaitingMs] = useState(DEFAULT_WAIT_MS);
-  const [notificationRedirect, setNotificationRedirect] = useState(false);
-
-  const notifListener = useRef<Notifications.Subscription>();
-  const respListener = useRef<Notifications.Subscription>();
+  const notificationResponseListener = useRef<Notifications.Subscription>();
 
   useEffect(() => {
     Notifications.setNotificationChannelAsync('falls', {
@@ -154,15 +146,12 @@ export const AppProvider = ({ children }: AppProviderProps) => {
   }, []);
 
   useEffect(() => {
-    notifListener.current = Notifications.addNotificationReceivedListener(() => {});
-    respListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      setNotificationRedirect(true);
+    notificationResponseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
       const screen = response.notification.request.content.data?.screen;
-      router.push(typeof screen === 'string' ? screen : '/(tabs)/logs');
+      if (screen) router.replace(screen);
     });
     return () => {
-      notifListener.current?.remove();
-      respListener.current?.remove();
+      notificationResponseListener.current?.remove();
     };
   }, []);
 
@@ -212,20 +201,21 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     await loadLogs(token, user);
     contacts
       .filter((c) => c.expoPushToken)
-      .forEach((c) =>
-        sendExpoPush(c.expoPushToken!, '⚠ Fall Detected', 'Tap to view the record')
-      );
+      .forEach((c) => sendExpoPush(c.expoPushToken!, '⚠ Fall Detected', 'Tap to view the record'));
     return saved.id ?? null;
   };
 
   const addScreenshot = async (uri: string, eventId?: number) => {
     setShots((s) => [uri, ...s]);
-    if (token && eventId) {
-      await api(`/events/${eventId}/screenshot`, 'PATCH', token, {
-        screenshotUri: uri,
-      });
-      await loadLogs(token, user);
-    }
+    if (!token || !eventId) return;
+
+    const uploaded = await uploadScreenshotToFirebase(uri); // ← función corregida
+    if (!uploaded) return;
+
+    await api(`/events/${eventId}/screenshot`, 'PATCH', token, {
+      screenshotUri: uploaded,
+    });
+    await loadLogs(token, user);
   };
 
   const updateWaitingMs = async (ms: number) => {
@@ -235,7 +225,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
 
   const clearLogs = async () => {
     if (!token) return;
-    await api('/events/clear', 'DELETE', token); // ← asegúrate de tener este endpoint en el backend
+    await api('/events/clear', 'DELETE', token);
     setLogs([]);
   };
 
@@ -268,14 +258,20 @@ export const AppProvider = ({ children }: AppProviderProps) => {
         updateWaitingMs,
         logout,
         clearLogs,
-        notificationRedirect,
-        setNotificationRedirect,
       }}
     >
       {children}
     </AppContext.Provider>
   );
 };
+
+
+
+
+
+
+
+
 
 
 

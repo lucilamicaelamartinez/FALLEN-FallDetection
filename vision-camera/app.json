@@ -32,7 +32,7 @@
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.INTERNET"
       ],
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": ".android/app/google-services.json"
     },
     "web": {
       "bundler": "metro",

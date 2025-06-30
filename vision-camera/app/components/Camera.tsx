@@ -18,6 +18,7 @@ import { useTensorflowModel } from 'react-native-fast-tflite';
 import { useResizePlugin } from 'vision-camera-resize-plugin';
 import { useRunOnJS } from 'react-native-worklets-core';
 import { useAppContext } from '../../contexts/AppContext';
+import { uploadImageAsync } from '../../utils/uploadImage'; // ✅ Importamos la función
 
 const { width: W, height: H } = Dimensions.get('window');
 
@@ -150,7 +151,10 @@ export default function CameraComponent() {
           qualityPrioritization: 'balanced',
         });
         if (photo?.path && eventId) {
-          await addScreenshot(`file://${photo.path}`, eventId);
+          const remoteUrl = await uploadImageAsync(`file://${photo.path}`);
+          if (remoteUrl) {
+            await addScreenshot(remoteUrl, eventId);
+          }
         }
       })().catch(console.warn);
     }
@@ -230,6 +234,7 @@ const styles = StyleSheet.create({
   detectionBox:{ position:'absolute', borderWidth:2, backgroundColor:'rgba(255,255,255,0.1)' },
   detectionText:{ color:'white', fontSize:12, backgroundColor:'rgba(0,0,0,0.7)', padding:2 },
 });
+
 
 
 
