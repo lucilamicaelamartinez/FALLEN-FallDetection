@@ -29,7 +29,7 @@ public class FallEventController {
         this.users = users;
     }
 
-    // ═══════════════ 1. POST /falls (no JWT) ═══════════════
+    // ═══════════════ 1. POST /falls (sin JWT) ═══════════════
     @PostMapping("/falls")
     public ResponseEntity<?> registerFall(@RequestBody FallDTO dto) {
         User elderly = users.getUserById(dto.getElderlyId());
@@ -50,7 +50,7 @@ public class FallEventController {
         return ResponseEntity.ok(new FallEventDTO(ev));
     }
 
-    // ═══════════════ 2. POST /events (with JWT) ═══════════════
+    // ═══════════════ 2. POST /events (con JWT) ═══════════════
     @PostMapping("/events")
     public ResponseEntity<?> registerFallEvent(
             @RequestHeader("Authorization") String auth,
@@ -66,12 +66,14 @@ public class FallEventController {
         if (me.getRole() != UserRole.ELDERLY_PERSON)
             return ResponseEntity.status(403).body("Only elderly person can register events");
 
-        LocalDateTime ts = body.timestamp() != null
-                ? body.timestamp()
-                : LocalDateTime.now();
+        LocalDateTime ts = body.timestamp() != null ? body.timestamp() : LocalDateTime.now();
 
         FallEvent saved = fallEvents.registerFallEvent(
-                me, ts, body.location(), body.screenshotUri());
+                me,
+                ts,
+                body.location(),
+                body.screenshotUri()
+        );
 
         return ResponseEntity.ok(new FallEventDTO(saved));
     }
@@ -92,20 +94,24 @@ public class FallEventController {
 
         FallEvent ev = fallEvents.getEventById(id);
         if (ev == null)
-            return ResponseEntity.status(404).body("Event not found");
+            return ResponseEntity.status(404).body("Event not found with ID: " + id);
 
         boolean isOwner = me.equals(ev.getUser());
         boolean isContact = me.getRole() == UserRole.EMERGENCY_CONTACT &&
                             me.getElderlyPersons().contains(ev.getUser());
 
         if (!isOwner && !isContact)
-            return ResponseEntity.status(403).body("Not authorized");
+            return ResponseEntity.status(403).body("Not authorized to modify this event");
 
-        fallEvents.updateScreenshot(ev, body.screenshotUri());
-        return ResponseEntity.ok().build();
+        try {
+            fallEvents.updateScreenshot(ev, body.screenshotUri());
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Error updating screenshot: " + e.getMessage());
+        }
     }
 
-    // ═══════════════ 4. GET /events (with JWT) ═══════════════
+    // ═══════════════ 4. GET /events (con JWT) ═══════════════
     @GetMapping("/events")
     public ResponseEntity<?> listEvents(@RequestHeader("Authorization") String auth) {
 
@@ -137,7 +143,7 @@ public class FallEventController {
         return ResponseEntity.ok(output);
     }
 
-    // ═══════════════ 5. DELETE /events/clear (with JWT) ═══════════════
+    // ═══════════════ 5. DELETE /events/clear (con JWT) ═══════════════
     @DeleteMapping("/events/clear")
     public ResponseEntity<?> clearMyEvents(@RequestHeader("Authorization") String auth) {
         if (auth == null || !auth.startsWith("Bearer "))
@@ -154,7 +160,7 @@ public class FallEventController {
         return ResponseEntity.ok().build();
     }
 
-    // ═══════════════ DTOs (internal) ═══════════════
+    // ═══════════════ Records DTO internos ═══════════════
     public record FallEventRequest(
             Long userId,
             LocalDateTime timestamp,
@@ -163,7 +169,6 @@ public class FallEventController {
 
     public record ScreenshotDTO(String screenshotUri) {}
 }
-
 
 
 

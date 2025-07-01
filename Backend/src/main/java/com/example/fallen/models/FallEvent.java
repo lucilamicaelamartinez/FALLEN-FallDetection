@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -37,6 +38,7 @@ public class FallEvent {
     private String location;
 
     // Link or identifier of a screenshot related to the fall (optional)
+    @Column(name = "screenshot_uri")
     private String screenshotUri;
 
     public FallEvent() {
