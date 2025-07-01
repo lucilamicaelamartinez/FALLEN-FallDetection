@@ -151,13 +151,25 @@ export const AppProvider = ({ children }: AppProviderProps) => {
   }, []);
 
   useEffect(() => {
-    notificationResponseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      const screen = response.notification.request.content.data?.screen;
+    async function checkInitialNotification() {
+      const response = await Notifications.getLastNotificationResponseAsync();
+      const screen = response?.notification.request.content.data?.screen;
       if (screen) {
         notificationRedirect.current = screen;
-        router.push(screen);
       }
-    });
+    }
+
+    checkInitialNotification();
+
+    notificationResponseListener.current =
+      Notifications.addNotificationResponseReceivedListener(response => {
+        const screen = response.notification.request.content.data?.screen;
+        if (screen) {
+          notificationRedirect.current = screen;
+          router.push(screen);
+        }
+      });
+
     return () => {
       notificationResponseListener.current?.remove();
     };
@@ -273,4 +285,5 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     </AppContext.Provider>
   );
 };
+
 

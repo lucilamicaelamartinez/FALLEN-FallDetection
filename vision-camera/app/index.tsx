@@ -21,8 +21,9 @@ export default function Index() {
     if (!user) {
       router.replace('/login');
     } else if (redirectRef.current) {
-      router.replace(redirectRef.current);
+      const dest = redirectRef.current!;
       redirectRef.current = null;
+      router.replace(dest);
     } else {
       router.replace('/home');
     }
@@ -34,6 +35,8 @@ export default function Index() {
     </View>
   );
 }
+
+
 
 
 

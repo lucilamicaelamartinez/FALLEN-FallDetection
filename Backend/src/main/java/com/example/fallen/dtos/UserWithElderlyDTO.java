@@ -19,18 +19,23 @@ public class UserWithElderlyDTO {
         this.role = user.getRole().name();
         this.phoneNumber = user.getPhoneNumber();
         this.elderlyPersons = user.getElderlyPersons().stream()
-                .map(u -> new SimpleUserDTO(u.getId(), u.getName(), u.getEmail(), u.getPhoneNumber()))
+                .map(u -> new SimpleUserDTO(
+                        u.getId(),
+                        u.getName(),
+                        u.getEmail(),
+                        u.getPhoneNumber()
+                ))
                 .toList();
     }
 
-    // Getters
-    public Long getId()               { return id; }
-    public String getName()           { return name; }
-    public String getEmail()          { return email; }
-    public String getRole()           { return role; }
-    public String getPhoneNumber()    { return phoneNumber; }
+    public Long getId()                         { return id; }
+    public String getName()                     { return name; }
+    public String getEmail()                    { return email; }
+    public String getRole()                     { return role; }
+    public String getPhoneNumber()              { return phoneNumber; }
     public List<SimpleUserDTO> getElderlyPersons() { return elderlyPersons; }
 }
+
 
 
 

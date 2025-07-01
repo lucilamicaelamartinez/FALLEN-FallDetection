@@ -33,10 +33,11 @@ public class EmergencyContact {
     @JoinColumn(name = "contact_id", nullable = false)
     private User contact;
 
-    // Constructor
+    // Constructor por defecto
     public EmergencyContact() {
     }
 
+    // Constructor útil para establecer relación directa
     public EmergencyContact(User elderlyPerson, User contact) {
         this.elderlyPerson = elderlyPerson;
         this.contact = contact;
@@ -62,4 +63,5 @@ public class EmergencyContact {
     public void setContact(User contact) {
         this.contact = contact;
     }
-} 
+}
+

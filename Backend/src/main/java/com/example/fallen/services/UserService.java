@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.fallen.models.EmergencyContact;
 import com.example.fallen.models.User;
 import com.example.fallen.models.UserRole;
 import com.example.fallen.repositories.EmergencyContactRepository;
@@ -29,11 +30,9 @@ import jakarta.annotation.PostConstruct;
 @Service
 public class UserService {
 
-    /* ─────────────────────────  DEPENDENCIAS ───────────────────────── */
     @Autowired private UserRepository userRepository;
     @Autowired private EmergencyContactRepository emergencyContactRepository;
 
-    /* ─────────────────────────  JWT ───────────────────────── */
     @Value("${jwt.secret}")
     private String secret;
     private Key jwtKey;
@@ -43,7 +42,7 @@ public class UserService {
         this.jwtKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
-    /* ══════════════════════ REGISTRO ══════════════════════ */
+    /* ══════════════════════ REGISTRO CORREGIDO ══════════════════════ */
     @Transactional
     public User registerUser(String name,
                              String email,
@@ -58,6 +57,7 @@ public class UserService {
         User newUser = new User(name, email, encryptPassword(password), role);
         newUser.setPhoneNumber(phoneNumber);
 
+        // 🔹 Si es contacto de emergencia, crear relación al mismo tiempo
         if (role == UserRole.EMERGENCY_CONTACT) {
             if (elderlyPersonId == null)
                 throw new IllegalArgumentException("Must provide associated elderly person ID.");
@@ -66,11 +66,19 @@ public class UserService {
                     .filter(u -> u.getRole() == UserRole.ELDERLY_PERSON)
                     .orElseThrow(() -> new IllegalArgumentException("Associated elderly person not found."));
 
-            elder.addEmergencyContact(newUser);
-            userRepository.save(elder); // cascada
+            // Guardar usuario primero para generar ID
+            newUser = userRepository.save(newUser);
+
+            // Crear y asignar la relación
+            EmergencyContact relation = new EmergencyContact(elder, newUser);
+            emergencyContactRepository.save(relation);
+
+        } else {
+            // Guardar usuario directamente si no es contacto
+            newUser = userRepository.save(newUser);
         }
 
-        return userRepository.save(newUser);
+        return newUser;
     }
 
     /* ══════════════════════ LOGIN ══════════════════════ */
@@ -180,7 +188,6 @@ public class UserService {
         }
     }
 }
-
 
 
 

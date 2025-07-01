@@ -2,10 +2,10 @@
 package com.example.fallen.dtos;
 
 public class SimpleUserDTO {
-    public Long id;
-    public String name;
-    public String email;
-    public String phoneNumber;
+    private Long id;
+    private String name;
+    private String email;
+    private String phoneNumber;
 
     public SimpleUserDTO(Long id, String name, String email, String phoneNumber) {
         this.id = id;
@@ -13,4 +13,9 @@ public class SimpleUserDTO {
         this.email = email;
         this.phoneNumber = phoneNumber;
     }
+
+    public Long getId()         { return id; }
+    public String getName()     { return name; }
+    public String getEmail()    { return email; }
+    public String getPhoneNumber() { return phoneNumber; }
 }

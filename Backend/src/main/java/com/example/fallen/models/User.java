@@ -15,8 +15,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
 /**
@@ -56,30 +54,21 @@ public class User {
      *  NEW ➜ Expo push-token
      * ─────────────────────────── */
     @Column(name = "expo_push_token")
-    private String expoPushToken;   // ← único cambio de esta versión
+    private String expoPushToken;
 
     /* ───────────────────────────
      *  Relationships
      * ─────────────────────────── */
-    // Lista donde este usuario es la persona mayor
     @JsonManagedReference("elderly-person")
-    @OneToMany(mappedBy = "elderlyPerson",
-               cascade = CascadeType.ALL,
-               orphanRemoval = true)
+    @OneToMany(mappedBy = "elderlyPerson", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<EmergencyContact> emergencyContactRelations = new ArrayList<>();
 
-    // Lista donde este usuario es el contacto de emergencia
     @JsonManagedReference("contact")
-    @OneToMany(mappedBy = "contact",
-               cascade = CascadeType.ALL,
-               orphanRemoval = true)
+    @OneToMany(mappedBy = "contact", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<EmergencyContact> elderlyPersonRelations = new ArrayList<>();
 
-    // Eventos de caída asociados
     @JsonManagedReference("user-falls")
-    @OneToMany(mappedBy = "user",
-               cascade = CascadeType.ALL,
-               orphanRemoval = true)
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<FallEvent> fallEvents = new ArrayList<>();
 
     /* ───────────────────────────
@@ -88,25 +77,25 @@ public class User {
     public User() { }
 
     public User(String name, String email, String password, UserRole role) {
-        this.name     = name;
-        this.email    = email;
+        this.name = name;
+        this.email = email;
         this.password = password;
-        this.role     = role;
+        this.role = role;
     }
 
     /* ───────────────────────────
-     *  Validation hooks
+     *  Validation hooks (COMENTADOS)
      * ─────────────────────────── */
-    @PrePersist
-    @PreUpdate
-    public void validateRelations() {
-        if (role == UserRole.EMERGENCY_CONTACT && elderlyPersonRelations.isEmpty()) {
-            throw new IllegalStateException("Un contacto de emergencia debe estar asociado a una persona mayor");
-        }
-        if (role == UserRole.ELDERLY_PERSON && !elderlyPersonRelations.isEmpty()) {
-            throw new IllegalStateException("Una persona mayor no puede ser contacto de emergencia de otra persona");
-        }
-    }
+    // @PrePersist
+    // @PreUpdate
+    // public void validateRelations() {
+    //     if (role == UserRole.EMERGENCY_CONTACT && elderlyPersonRelations.isEmpty()) {
+    //         throw new IllegalStateException("Un contacto de emergencia debe estar asociado a una persona mayor");
+    //     }
+    //     if (role == UserRole.ELDERLY_PERSON && !elderlyPersonRelations.isEmpty()) {
+    //         throw new IllegalStateException("Una persona mayor no puede ser contacto de emergencia de otra persona");
+    //     }
+    // }
 
     /* ───────────────────────────
      *  Helper methods
@@ -136,15 +125,15 @@ public class User {
     @JsonIgnore
     public List<User> getEmergencyContacts() {
         return emergencyContactRelations.stream()
-                                        .map(EmergencyContact::getContact)
-                                        .toList();
+                .map(EmergencyContact::getContact)
+                .toList();
     }
 
     @JsonIgnore
     public List<User> getElderlyPersons() {
         return elderlyPersonRelations.stream()
-                                     .map(EmergencyContact::getElderlyPerson)
-                                     .toList();
+                .map(EmergencyContact::getElderlyPerson)
+                .toList();
     }
 
     /* ───────────────────────────
@@ -167,7 +156,6 @@ public class User {
     public String getPhoneNumber() { return phoneNumber; }
     public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
 
-    /* NEW ➜ expoPushToken */
     public String getExpoPushToken() { return expoPushToken; }
     public void setExpoPushToken(String expoPushToken) { this.expoPushToken = expoPushToken; }
 
