@@ -12,6 +12,7 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { api } from '../api/api';
 import { uploadScreenshotToFirebase } from '../libs/uploadScreenshotToFirebase';
+import { router } from 'expo-router';
 
 export interface IUser {
   id: number;
@@ -55,6 +56,8 @@ interface Ctx {
   logs: IEvent[];
   screenshots: string[];
   waitingMs: number;
+  notificationRedirect: string | null;
+  setNotificationRedirect: (value: string | null) => void;
   login(email: string, password: string): Promise<void>;
   register(data: RegisterPayload): Promise<void>;
   logout(): void;
@@ -70,15 +73,14 @@ interface Ctx {
 export const AppContext = createContext<Ctx>({} as Ctx);
 export const useAppContext = () => useContext(AppContext);
 
-// 👇 nueva exportación para el redireccionamiento por notificación
-const notificationRedirect = useRef<string | null>(null);
-export const useNotificationRedirect = () => notificationRedirect;
-
 const PROJECT_ID = '5724bbe6-e00b-4e9e-9cb3-22ed66f1399b';
 const TOKEN_KEY = '@fallen_token';
 const USER_KEY = '@fallen_user';
 const WAIT_KEY = '@fallen_wait_ms';
 const DEFAULT_WAIT_MS = 10000;
+
+const notificationRedirect = useRef<string | null>(null);
+export const useNotificationRedirect = () => notificationRedirect;
 
 async function getExpoPushToken(): Promise<string | null> {
   try {
@@ -107,7 +109,7 @@ async function sendExpoPush(to: string, title: string, body: string) {
       body,
       sound: 'default',
       channelId: 'falls',
-      data: { screen: '/(tabs)/logs' },
+      data: { screen: '/logs' },
     }),
   });
 }
@@ -151,7 +153,10 @@ export const AppProvider = ({ children }: AppProviderProps) => {
   useEffect(() => {
     notificationResponseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
       const screen = response.notification.request.content.data?.screen;
-      if (screen) notificationRedirect.current = screen; // 👈 redirección en index
+      if (screen) {
+        notificationRedirect.current = screen;
+        router.push(screen);
+      }
     });
     return () => {
       notificationResponseListener.current?.remove();
@@ -250,6 +255,8 @@ export const AppProvider = ({ children }: AppProviderProps) => {
         logs,
         screenshots,
         waitingMs,
+        notificationRedirect: notificationRedirect.current,
+        setNotificationRedirect: (val) => (notificationRedirect.current = val),
         login,
         register,
         loadContacts,
@@ -266,32 +273,4 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     </AppContext.Provider>
   );
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

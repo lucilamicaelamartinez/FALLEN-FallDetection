@@ -1,3 +1,4 @@
+// app/index.tsx
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -6,26 +7,26 @@ import { useAppContext, useNotificationRedirect } from '../contexts/AppContext';
 export default function Index() {
   const router = useRouter();
   const { user } = useAppContext();
-  const redirect = useNotificationRedirect(); // 🔁 contiene la ruta desde la notificación
-  const [booted, setBooted] = useState(false);
+  const redirectRef = useNotificationRedirect();
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const timeout = setTimeout(() => setBooted(true), 300); // delay para cargar contexto
+    const timeout = setTimeout(() => setReady(true), 300);
     return () => clearTimeout(timeout);
   }, []);
 
   useEffect(() => {
-    if (!booted) return;
+    if (!ready) return;
 
     if (!user) {
       router.replace('/login');
-    } else if (redirect.current) {
-      router.replace(redirect.current as never); // ✅ corregido para evitar el error de tipo
-      redirect.current = null; // limpiamos para que no se repita
+    } else if (redirectRef.current) {
+      router.replace(redirectRef.current);
+      redirectRef.current = null;
     } else {
-      router.replace('/(tabs)/home'); // navegación normal
+      router.replace('/home');
     }
-  }, [booted, user]);
+  }, [ready, user]);
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#061833' }}>
@@ -33,6 +34,10 @@ export default function Index() {
     </View>
   );
 }
+
+
+
+
 
 
 
