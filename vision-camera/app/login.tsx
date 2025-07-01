@@ -1,4 +1,3 @@
-// /app/login.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -10,9 +9,11 @@ import {
   Image,
   Dimensions,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAppContext } from '../contexts/AppContext';   // 👈  sin registerPushToken
+import { useAppContext } from '../contexts/AppContext';
 
 const { width } = Dimensions.get('window');
 
@@ -32,8 +33,8 @@ export default function LoginScreen() {
 
     try {
       setLoading(true);
-      await login(email.trim(), password);   // 🔐  login ya registra el push-token
-      router.replace('/');                  // redirige según rol
+      await login(email.trim(), password);
+      router.replace('/');
     } catch (e) {
       Alert.alert('Login failed', (e as Error).message);
     } finally {
@@ -42,60 +43,66 @@ export default function LoginScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {/* Splash image */}
-      <Image
-        source={require('../assets/images/home.png')}
-        style={styles.image}
-        resizeMode="cover"
-      />
-
-      {/* Form */}
-      <View style={styles.form}>
-        <Text style={styles.title}>Login</Text>
-
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor="#777"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} // ← clave para Android
+    >
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Image
+          source={require('../assets/images/home.png')}
+          style={styles.image}
+          resizeMode="cover"
         />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          placeholderTextColor="#777"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+        <View style={styles.form}>
+          <Text style={styles.title}>Login</Text>
 
-        <Button
-          title={loading ? 'Loading…' : 'Login'}
-          onPress={handleLogin}
-          disabled={loading}
-        />
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            placeholderTextColor="#777"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
 
-        <View style={{ height: 10 }} />
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            placeholderTextColor="#777"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
 
-        <Button
-          title="Register"
-          color="gray"
-          onPress={() => router.push('/register')}
-          disabled={loading}
-        />
-      </View>
-    </ScrollView>
+          <Button
+            title={loading ? 'Loading…' : 'Login'}
+            onPress={handleLogin}
+            disabled={loading}
+          />
+
+          <View style={{ height: 10 }} />
+
+          <Button
+            title="Register"
+            color="gray"
+            onPress={() => router.push('/register')}
+            disabled={loading}
+          />
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flexGrow: 1, backgroundColor: '#061833', alignItems: 'center' },
   image:     { width, height: width },
-  form:      { width: '85%', padding: 20, backgroundColor: '#061833' },
+  form:      { width: '85%', padding: 20, backgroundColor: '#061833', flex: 1 },
   title:     { fontSize: 24, color: '#fff', textAlign: 'center', marginBottom: 16 },
   input: {
     backgroundColor: '#fff',

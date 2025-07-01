@@ -19,3 +19,9 @@ export async function api(
   if (!res.ok) throw new Error(json.message || 'API error');
   return json;
 }
+
+// 🔍 Buscar persona mayor por email
+export async function findElderByEmail(email: string, token: string) {
+  return await api(`/elders/by-email?email=${encodeURIComponent(email)}`, 'GET', token);
+}
+

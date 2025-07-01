@@ -1,5 +1,4 @@
-// app/register.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -10,35 +9,52 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
-import { useAppContext, IUser } from '../contexts/AppContext';
+import { useAppContext } from '../contexts/AppContext';
 import { api } from '../api/api';
 
 export default function RegisterScreen() {
-  const router           = useRouter();
-  const { register }     = useAppContext();
+  const router       = useRouter();
+  const { register } = useAppContext();
 
-  const [name,        setName]     = useState('');
-  const [email,       setEmail]    = useState('');
-  const [password,    setPassword] = useState('');
-  const [phoneNumber, setPhone]    = useState('');
-  const [selectedRole, setRole]    = useState<'elder' | 'contact'>('elder');
-  const [elderlyPersonId, setElderlyPersonId] = useState<number | undefined>();
-  const [elderlyUsers, setElderlyUsers] = useState<IUser[]>([]);
-  const [loading,     setLoading]  = useState(false);
+  const [name, setName]               = useState('');
+  const [email, setEmail]             = useState('');
+  const [password, setPassword]       = useState('');
+  const [phoneNumber, setPhone]       = useState('');
+  const [selectedRole, setRole]       = useState<'elder' | 'contact'>('elder');
+  const [elderEmail, setElderEmail]   = useState('');
+  const [elderlyPersonId, setElderlyPersonId] = useState<number | null>(null);
+  const [elderlyPersonName, setElderlyPersonName] = useState('');
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [verifying, setVerifying]     = useState(false);
+  const [loading, setLoading]         = useState(false);
 
-  useEffect(() => {
-    const fetchElders = async () => {
-      try {
-        const data: IUser[] = await api('/elders', 'GET');
-        setElderlyUsers(data);
-      } catch (e) {
-        console.error(e);
+  const verifyElderEmail = async () => {
+    if (!elderEmail) {
+      Alert.alert('Missing email', 'Please enter the elderly person\'s email.');
+      return;
+    }
+    try {
+      setVerifying(true);
+      const elders = await api('/elders', 'GET');
+      const match = elders.find((u: any) => u.email === elderEmail.trim());
+      if (!match) {
+        Alert.alert('Not found', 'No elderly person registered with that email. Please register them first.');
+        setElderlyPersonId(null);
+        setElderlyPersonName('');
+        setEmailVerified(false);
+      } else {
+        Alert.alert('Verified', `Linked to: ${match.name}`);
+        setElderlyPersonId(match.id);
+        setElderlyPersonName(match.name);
+        setEmailVerified(true);
       }
-    };
-    if (selectedRole === 'contact') fetchElders();
-  }, [selectedRole]);
+    } catch (err) {
+      Alert.alert('Error', 'Could not verify elderly person.');
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const handleRegister = async () => {
     if (!name || !email || !password || !phoneNumber) {
@@ -46,9 +62,11 @@ export default function RegisterScreen() {
       return;
     }
 
-    if (selectedRole === 'contact' && !elderlyPersonId) {
-      Alert.alert('Select elder', 'Please select the senior person this contact is linked to.');
-      return;
+    if (selectedRole === 'contact') {
+      if (!elderlyPersonId || !emailVerified) {
+        Alert.alert('Verify elder', 'Please verify the elderly person\'s email first.');
+        return;
+      }
     }
 
     try {
@@ -59,7 +77,7 @@ export default function RegisterScreen() {
         password,
         phoneNumber,
         role: selectedRole === 'elder' ? 'ELDERLY_PERSON' : 'EMERGENCY_CONTACT',
-        elderlyPersonId,
+        elderlyPersonId: elderlyPersonId ?? undefined,
       });
       Alert.alert('Success', 'Account created');
       router.replace('/login');
@@ -123,26 +141,38 @@ export default function RegisterScreen() {
       </View>
 
       {selectedRole === 'contact' && (
-        <View style={styles.pickerWrapper}>
-          <Text style={styles.pickerLabel}>Select associated elder:</Text>
-          <Picker
-            selectedValue={elderlyPersonId}
-            onValueChange={(itemValue) => setElderlyPersonId(itemValue)}
-            style={Platform.OS === 'android' ? styles.picker : undefined}
-          >
-            <Picker.Item label="-- Select --" value={undefined} />
-            {elderlyUsers.map(user => (
-              <Picker.Item key={user.id} label={user.name} value={user.id} />
-            ))}
-          </Picker>
-        </View>
+        <>
+          <TextInput
+            style={styles.input}
+            placeholder="Elderly person's email"
+            placeholderTextColor="#999"
+            value={elderEmail}
+            onChangeText={(text) => {
+              setElderEmail(text);
+              setEmailVerified(false);
+              setElderlyPersonName('');
+            }}
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+          <Button
+            title={verifying ? 'Verifying...' : 'Verify Elder Email'}
+            onPress={verifyElderEmail}
+            disabled={verifying}
+          />
+          {emailVerified && elderlyPersonName !== '' && (
+            <Text style={styles.confirmationText}>✔ Associated with: {elderlyPersonName}</Text>
+          )}
+        </>
       )}
 
-      <Button
-        title={loading ? 'Loading…' : 'Register'}
-        onPress={handleRegister}
-        disabled={loading}
-      />
+      <View style={{ marginTop: 20 }}>
+        <Button
+          title={loading ? 'Registering...' : 'Register'}
+          onPress={handleRegister}
+          disabled={loading}
+        />
+      </View>
     </View>
   );
 }
@@ -172,14 +202,12 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   roleSelected: { backgroundColor: '#eee' },
-  pickerWrapper: { marginBottom: 10 },
-  pickerLabel:   { marginBottom: 4, color: '#333' },
-  picker: {
-    backgroundColor: '#f9f9f9',
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 5,
+  confirmationText: {
+    marginTop: 8,
+    fontStyle: 'italic',
+    color: '#2a8',
   },
 });
+
 
 

@@ -93,13 +93,16 @@ async function getExpoPushToken(): Promise<string | null> {
     if (status !== 'granted') return null;
 
     const { data } = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
+    console.log('✅ Token obtenido:', data);
     return data;
-  } catch {
+  } catch (err) {
+    console.log('❌ Error al obtener token:', err);
     return null;
   }
 }
 
 async function sendExpoPush(to: string, title: string, body: string) {
+  console.log('📤 Enviando notificación a', to);
   await fetch('https://exp.host/--/api/v2/push/send', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -145,7 +148,9 @@ export const AppProvider = ({ children }: AppProviderProps) => {
         setUser(parsed);
         loadLogs(tk[1], parsed);
         if (parsed.role === 'ELDERLY_PERSON') loadContacts(tk[1]);
-        registerPushToken();
+        registerPushToken(tk[1], parsed);
+      } else {
+        console.log('❌ Token inválido o falta info del usuario');
       }
     });
   }, []);
@@ -177,24 +182,27 @@ export const AppProvider = ({ children }: AppProviderProps) => {
 
   const loadContacts = async (t: string | null = token) => {
     if (!t) return;
+    console.log('📞 Cargando contactos…');
     const data = await api<IUser[]>('/emergency-contacts', 'GET', t);
     setContacts(data);
   };
 
   const loadLogs = async (t: string | null = token, currentUser: IUser | null = user) => {
     if (!t || !currentUser) return;
+    console.log('📜 Cargando logs…');
     const result = await api<IEvent[]>('/events', 'GET', t);
     const sorted = result.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     setLogs(sorted);
   };
 
-  const registerPushToken = async () => {
+  const registerPushToken = async (tk: string | null = token, usr: IUser | null = user) => {
     const pushTok = await getExpoPushToken();
-    if (!pushTok || !token || !user?.id) return;
-    await api('/users/expo-token', 'POST', token, { expoToken: pushTok });
-    const updated = { ...user, expoPushToken: pushTok };
+    if (!pushTok || !tk || !usr?.id) return;
+    await api('/users/expo-token', 'POST', tk, { expoToken: pushTok });
+    const updated = { ...usr, expoPushToken: pushTok };
     setUser(updated);
     AsyncStorage.setItem(USER_KEY, JSON.stringify(updated));
+    console.log('✅ Token registrado y guardado');
   };
 
   const login = async (email: string, password: string) => {
@@ -206,7 +214,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     AsyncStorage.setItem(USER_KEY, JSON.stringify(me));
     if (me.role === 'ELDERLY_PERSON') await loadContacts(tk);
     await loadLogs(tk, me);
-    registerPushToken();
+    await registerPushToken(tk, me);
   };
 
   const register = (data: RegisterPayload) => api('/register', 'POST', undefined, data);

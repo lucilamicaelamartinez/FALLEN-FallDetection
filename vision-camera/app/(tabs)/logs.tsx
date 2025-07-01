@@ -17,7 +17,7 @@ import moment from 'moment';
 import ImageViewing from 'react-native-image-viewing';
 
 export default function LogsScreen() {
-  const { logs, loadLogs, registerPushToken, clearLogs } = useContext(AppContext);
+  const { logs, loadLogs, clearLogs } = useContext(AppContext);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
@@ -63,9 +63,6 @@ export default function LogsScreen() {
     const timestamp = moment.utc(item.timestamp).local();
     const formatted = timestamp.format('YYYY-MM-DD HH:mm:ss');
     const relative = timestamp.fromNow();
-
-    // 👇 Log para verificar que la imagen existe
-    console.log('🧾 Screenshot:', item.screenshotUri);
 
     return (
       <View style={styles.logCard}>
@@ -121,10 +118,6 @@ export default function LogsScreen() {
     <View style={styles.container}>
       <Text style={styles.title}>Fall Logs</Text>
 
-      <TouchableOpacity onPress={registerPushToken} style={styles.manualBtn}>
-        <Text style={styles.manualText}>Register Push Token</Text>
-      </TouchableOpacity>
-
       <TouchableOpacity onPress={handleClearLogs} style={styles.deleteBtn}>
         <Text style={styles.deleteText}>🗑 Delete All Logs</Text>
       </TouchableOpacity>
@@ -144,7 +137,6 @@ export default function LogsScreen() {
         <Text style={styles.empty}>No fall events yet.</Text>
       )}
 
-      {/* Modal de imagen */}
       {selectedImage && (
         <ImageViewing
           images={[{ uri: selectedImage }]}
@@ -163,6 +155,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#061833',
     padding: 20,
+    paddingTop: 60, // <-- Esto baja todo un poco
   },
   title: {
     fontSize: 26,
@@ -170,17 +163,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     textAlign: 'center',
     marginBottom: 16,
-  },
-  manualBtn: {
-    alignSelf: 'center',
-    marginBottom: 14,
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#2a4d90',
-  },
-  manualText: {
-    color: 'white',
-    fontWeight: '600',
   },
   deleteBtn: {
     alignSelf: 'center',
