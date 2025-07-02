@@ -22,4 +22,4 @@ public interface EmergencyContactRepository extends JpaRepository<EmergencyConta
     
     // Encuentra una relación específica entre una persona mayor y un contacto
     EmergencyContact findByElderlyPersonAndContact(User elderlyPerson, User contact);
-}  
+} 

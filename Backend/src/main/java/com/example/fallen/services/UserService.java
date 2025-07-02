@@ -170,12 +170,20 @@ public class UserService {
         userRepository.findById(userId).ifPresent(u -> {
             u.setExpoPushToken(pushToken);
             userRepository.save(u);
+            System.out.printf("✅ Token push actualizado para %s (id=%d): %s%n",
+                u.getName(), u.getId(), pushToken);
         });
     }
 
     /* ══════════════════════ UTILIDADES ══════════════════════ */
     public List<User> getAllElderlyUsers() {
         return userRepository.findByRole(UserRole.ELDERLY_PERSON);
+    }
+
+    public User findElderByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .filter(u -> u.getRole() == UserRole.ELDERLY_PERSON)
+                .orElseThrow(() -> new IllegalArgumentException("No elderly user found with that email"));
     }
 
     private String encryptPassword(String password) {
@@ -188,6 +196,9 @@ public class UserService {
         }
     }
 }
+
+
+
 
 
 

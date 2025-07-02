@@ -168,4 +168,3 @@ public class User {
     public List<FallEvent> getFallEvents() { return fallEvents; }
     public void setFallEvents(List<FallEvent> fallEvents) { this.fallEvents = fallEvents; }
 }
-

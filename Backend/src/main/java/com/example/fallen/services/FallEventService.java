@@ -3,9 +3,10 @@ package com.example.fallen.services;
 import com.example.fallen.models.FallEvent;
 import com.example.fallen.models.User;
 import com.example.fallen.repositories.FallEventRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -13,12 +14,11 @@ import java.util.List;
 @Service
 public class FallEventService {
 
-    private final FallEventRepository fallEventRepository;
+    private static final Logger log = LoggerFactory.getLogger(FallEventService.class);
 
-    @Autowired
-    public FallEventService(FallEventRepository fallEventRepository) {
-        this.fallEventRepository = fallEventRepository;
-    }
+    @Autowired private FallEventRepository fallEventRepository;
+    @Autowired private UserService userService;
+    @Autowired private ExpoPushService expoPushService;
 
     public FallEvent registerFallEvent(User user, LocalDateTime timestamp, String location, String screenshotUri) {
         FallEvent ev = new FallEvent();
@@ -26,7 +26,15 @@ public class FallEventService {
         ev.setTimestamp(timestamp);
         ev.setLocation(location);
         ev.setScreenshotUri(screenshotUri);
-        return fallEventRepository.save(ev);
+        ev = fallEventRepository.save(ev);
+
+        // 🔔 La notificación se envía desde el frontend
+
+        return ev;
+    }
+
+    public FallEvent getEventById(Long id) {
+        return fallEventRepository.findById(id).orElse(null);
     }
 
     public List<FallEvent> getEventsByUser(User user) {
@@ -37,21 +45,20 @@ public class FallEventService {
         return fallEventRepository.findByUserIn(users);
     }
 
-    public FallEvent getEventById(Long id) {
-        return fallEventRepository.findById(id).orElse(null);
-    }
-
     public void updateScreenshot(FallEvent event, String screenshotUri) {
         event.setScreenshotUri(screenshotUri);
         fallEventRepository.save(event);
     }
 
-    @Transactional
     public void deleteEventsByUser(User user) {
         List<FallEvent> events = fallEventRepository.findByUser(user);
         fallEventRepository.deleteAll(events);
     }
 }
+
+
+
+
 
 
 

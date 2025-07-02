@@ -10,6 +10,7 @@ import com.example.fallen.models.User;
 import com.example.fallen.models.UserRole;
 import com.example.fallen.services.UserService;
 import com.example.fallen.dtos.UserWithElderlyDTO;
+import com.example.fallen.dtos.SimpleUserDTO;
 
 @RestController
 @RequestMapping("/api")
@@ -18,10 +19,6 @@ public class AuthController {
 
     @Autowired
     private UserService userService;
-
-    /* ───────────────────────────────
-     *  AUTH
-     * ─────────────────────────────── */
 
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@RequestBody UserRegistrationRequest request) {
@@ -67,7 +64,7 @@ public class AuthController {
 
         userService.updateExpoPushToken(user.getId(), body.getExpoToken());
 
-        System.out.printf("✅ Expo token guardado para %s (id=%d): %s%n",
+        System.out.printf("\u2705 Expo token guardado para %s (id=%d): %s%n",
                 user.getName(), user.getId(), body.getExpoToken());
 
         return ResponseEntity.ok().build();
@@ -78,6 +75,16 @@ public class AuthController {
         List<User> elders = userService.getAllElderlyUsers();
         elders.forEach(u -> u.setPassword(null));
         return ResponseEntity.ok(elders);
+    }
+
+    @GetMapping("/elders/by-email")
+    public ResponseEntity<?> getElderByEmail(@RequestParam String email) {
+        try {
+            User user = userService.findElderByEmail(email);
+            return ResponseEntity.ok(new SimpleUserDTO(user.getId(), user.getName(), user.getEmail(), user.getPhoneNumber()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
     @GetMapping("/emergency-contacts")
@@ -164,9 +171,6 @@ public class AuthController {
         return ResponseEntity.ok(new UserWithElderlyDTO(u));
     }
 
-    /* ───────────────────────────────
-     *  DTOs para las peticiones
-     * ─────────────────────────────── */
     public static class UserRegistrationRequest {
         private String name;
         private String email;
@@ -221,6 +225,10 @@ public class AuthController {
         public void setToken(String token) { this.token = token; }
     }
 }
+
+
+
+
 
 
 

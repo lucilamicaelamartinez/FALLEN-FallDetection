@@ -64,4 +64,3 @@ public class EmergencyContact {
         this.contact = contact;
     }
 }
-

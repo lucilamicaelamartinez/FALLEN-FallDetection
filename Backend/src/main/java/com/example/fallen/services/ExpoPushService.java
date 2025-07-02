@@ -38,6 +38,8 @@ public class ExpoPushService {
                 "sound", "default"
         );
 
+        log.info("📤 Enviando notificación a {}", expoPushToken);  // 👈 NUEVO LOG
+
         webClient.post()
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(payload)
