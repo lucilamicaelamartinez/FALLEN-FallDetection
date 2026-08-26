@@ -1,4 +1,3 @@
-// app/(tabs)/logs.tsx
 import React, { useCallback, useContext, useEffect, useState } from 'react';
 import {
   View,
@@ -11,6 +10,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { AppContext, IEvent } from '../../contexts/AppContext';
 import moment from 'moment';
@@ -66,6 +66,15 @@ export default function LogsScreen() {
 
     return (
       <View style={styles.logCard}>
+        <View style={styles.cardTop}>
+          <View style={styles.statusBadge}>
+            <View style={styles.statusDot} />
+            <Text style={styles.statusText}>Fall detected</Text>
+          </View>
+
+          <Text style={styles.relativeText}>{relative}</Text>
+        </View>
+
         <View style={styles.row}>
           {item.screenshotUri ? (
             <TouchableOpacity onPress={() => setSelectedImage(item.screenshotUri!)}>
@@ -80,20 +89,27 @@ export default function LogsScreen() {
             </TouchableOpacity>
           ) : (
             <View style={[styles.thumb, styles.thumbFallback]}>
-              <Text style={styles.thumbText}>⚠</Text>
+              <Ionicons name="warning-outline" size={22} color="#FF6978" />
             </View>
           )}
-          <View style={{ flex: 1, marginLeft: 12 }}>
+
+          <View style={styles.info}>
             <Text style={styles.logTime}>{formatted}</Text>
-            <Text style={styles.logRel}>{relative}</Text>
-            <Text style={styles.logLoc}>
-              {item.location || 'No location provided'}
-            </Text>
+
+            <View style={styles.locationRow}>
+              <Ionicons name="location-outline" size={14} color="#7990AA" />
+              <Text style={styles.logLoc}>
+                {item.location || 'No location provided'}
+              </Text>
+            </View>
           </View>
         </View>
 
         {item.screenshotUri && (
-          <TouchableOpacity onPress={() => setSelectedImage(item.screenshotUri!)}>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => setSelectedImage(item.screenshotUri!)}
+          >
             <Image
               source={{ uri: item.screenshotUri }}
               style={styles.screenshot}
@@ -102,6 +118,11 @@ export default function LogsScreen() {
                 console.log('⚠ Error cargando imagen grande', item.screenshotUri)
               }
             />
+
+            <View style={styles.imageOverlay}>
+              <Ionicons name="expand-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.imageOverlayText}>View image</Text>
+            </View>
           </TouchableOpacity>
         )}
       </View>
@@ -116,11 +137,23 @@ export default function LogsScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Fall Logs</Text>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.eyebrow}>ACTIVITY</Text>
+          <Text style={styles.title}>Fall Logs</Text>
+          <Text style={styles.subtitle}>
+            Recent detected fall events
+          </Text>
+        </View>
 
-      <TouchableOpacity onPress={handleClearLogs} style={styles.deleteBtn}>
-        <Text style={styles.deleteText}>🗑 Delete All Logs</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          onPress={handleClearLogs}
+          style={styles.deleteBtn}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="trash-outline" size={19} color="#FF6978" />
+        </TouchableOpacity>
+      </View>
 
       {sortedLogs.length ? (
         <FlatList
@@ -130,11 +163,24 @@ export default function LogsScreen() {
           contentContainerStyle={{ paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#4ED7E6"
+              colors={['#4ED7E6']}
+            />
           }
         />
       ) : (
-        <Text style={styles.empty}>No fall events yet.</Text>
+        <View style={styles.emptyState}>
+          <View style={styles.emptyIcon}>
+            <Ionicons name="shield-checkmark-outline" size={36} color="#4ED7E6" />
+          </View>
+          <Text style={styles.emptyTitle}>No fall events</Text>
+          <Text style={styles.empty}>
+            Detected falls will appear here.
+          </Text>
+        </View>
       )}
 
       {selectedImage && (
@@ -149,86 +195,163 @@ export default function LogsScreen() {
   );
 }
 
-/* ---------- styles ---------- */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#061833',
-    padding: 20,
-    paddingTop: 60, // <-- Esto baja todo un poco
+    backgroundColor: '#07172E',
+    paddingHorizontal: 20,
+    paddingTop: 58,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 22,
+  },
+  eyebrow: {
+    color: '#4ED7E6',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.8,
+    marginBottom: 5,
   },
   title: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#fff',
-    textAlign: 'center',
-    marginBottom: 16,
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  subtitle: {
+    color: '#8EA1BA',
+    marginTop: 5,
+    fontSize: 14,
   },
   deleteBtn: {
-    alignSelf: 'center',
-    marginBottom: 14,
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#902a2a',
-  },
-  deleteText: {
-    color: 'white',
-    fontWeight: '600',
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#623039',
+    backgroundColor: '#291D2A',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   logCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: '#10233E',
+    borderRadius: 20,
     padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#1D3858',
+  },
+  cardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2D202D',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#FF6978',
+    marginRight: 7,
+  },
+  statusText: {
+    color: '#FF8994',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  relativeText: {
+    color: '#7389A4',
+    fontSize: 12,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   thumb: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#ccc',
+    width: 58,
+    height: 58,
+    borderRadius: 16,
+    backgroundColor: '#233C59',
   },
   thumbFallback: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#eee',
   },
-  thumbText: {
-    fontSize: 18,
+  info: {
+    flex: 1,
+    marginLeft: 13,
   },
   logTime: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#F8FAFC',
   },
-  logRel: {
-    fontSize: 13,
-    color: '#888',
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 7,
+    gap: 4,
   },
   logLoc: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 13,
+    color: '#8EA1BA',
   },
   screenshot: {
     width: '100%',
     height: 220,
-    borderRadius: 8,
-    marginTop: 12,
+    borderRadius: 16,
+    marginTop: 16,
+  },
+  imageOverlay: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    backgroundColor: 'rgba(6, 24, 51, 0.78)',
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  imageOverlayText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  emptyState: {
+    marginTop: 90,
+    alignItems: 'center',
+  },
+  emptyIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 24,
+    backgroundColor: '#102D44',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  emptyTitle: {
+    color: '#FFFFFF',
+    fontSize: 19,
+    fontWeight: '700',
   },
   empty: {
-    fontStyle: 'italic',
-    fontSize: 16,
-    color: '#ccc',
+    fontSize: 14,
+    color: '#8296AF',
     textAlign: 'center',
-    marginTop: 40,
+    marginTop: 6,
   },
 });
 

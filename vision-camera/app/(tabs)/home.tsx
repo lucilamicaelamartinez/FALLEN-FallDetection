@@ -1,6 +1,10 @@
-// app/tabs/home.tsx
 import React, { useContext } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Button } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AppContext } from '../../contexts/AppContext';
@@ -15,39 +19,105 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome</Text>
-      <Text style={styles.email}>{user.email}</Text>
-      <Text style={styles.role}>
-        Role: {isElderly ? 'Elderly Person' : 'Emergency Contact'}
-      </Text>
+      <View style={styles.header}>
+        <Text style={styles.eyebrow}>FALLEN</Text>
+        <Text style={styles.title}>Welcome back</Text>
+        <Text style={styles.email}>{user.email}</Text>
+
+        <View style={styles.roleBadge}>
+          <View style={styles.roleDot} />
+          <Text style={styles.roleText}>
+            {isElderly ? 'Elderly Person' : 'Emergency Contact'}
+          </Text>
+        </View>
+      </View>
 
       {isElderly ? (
-        <TouchableOpacity style={styles.button} onPress={() => router.push('/camera')}>
-          <Ionicons name="camera" size={20} color="#fff" style={styles.icon} />
-          <Text style={styles.buttonText}>Open Camera</Text>
-        </TouchableOpacity>
-      ) : (
-        <>
-          <View style={styles.card}>
-            <Text style={styles.welcome}>Hi, {user.name ?? user.email}</Text>
-            <Text style={styles.info}>You will receive alerts if a fall is detected.</Text>
+        <View style={styles.heroCard}>
+          <View style={styles.heroIcon}>
+            <Ionicons name="scan-outline" size={34} color="#4ED7E6" />
           </View>
 
-          <View style={styles.buttonContainer}>
-            <View style={styles.buttonWrapper}>
-              <Button
-                title="View Fall Logs"
-                onPress={() => router.push('/logs')}
-                color="#007AFF"
-              />
+          <Text style={styles.heroTitle}>Fall Detection</Text>
+
+          <Text style={styles.heroText}>
+            Start the camera to monitor posture and detect possible falls.
+          </Text>
+
+          <TouchableOpacity
+            style={styles.primaryButton}
+            activeOpacity={0.88}
+            onPress={() => router.push('/camera')}
+          >
+            <Ionicons name="camera-outline" size={21} color="#07172E" />
+            <Text style={styles.primaryButtonText}>Open Camera</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <>
+          <View style={styles.heroCard}>
+            <View style={styles.heroIcon}>
+              <Ionicons name="notifications-outline" size={34} color="#4ED7E6" />
             </View>
-            <View style={styles.buttonWrapper}>
-              <Button
-                title="View Contacts"
-                onPress={() => router.push('/contacts')}
-                color="#007AFF"
-              />
+
+            <Text style={styles.heroTitle}>
+              Hi, {user.name ?? user.email}
+            </Text>
+
+            <Text style={styles.heroText}>
+              You will receive an alert whenever a connected person has a detected fall.
+            </Text>
+
+            <View style={styles.activeStatus}>
+              <View style={styles.activeDot} />
+              <Text style={styles.activeText}>Monitoring active</Text>
             </View>
+          </View>
+
+          <View style={styles.actionGrid}>
+            <TouchableOpacity
+              style={styles.actionCard}
+              activeOpacity={0.85}
+              onPress={() => router.push('/logs')}
+            >
+              <View style={styles.actionIcon}>
+                <Ionicons name="document-text-outline" size={24} color="#4ED7E6" />
+              </View>
+
+              <Text style={styles.actionTitle}>Fall Logs</Text>
+              <Text style={styles.actionSubtitle}>
+                Review detected events
+              </Text>
+
+              <Ionicons
+                name="arrow-forward"
+                size={18}
+                color="#8397B1"
+                style={styles.arrow}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionCard}
+              activeOpacity={0.85}
+              onPress={() => router.push('/contacts')}
+            >
+              <View style={styles.actionIcon}>
+                <Ionicons name="people-outline" size={24} color="#4ED7E6" />
+              </View>
+
+              <Text style={styles.actionTitle}>Contacts</Text>
+              <Text style={styles.actionSubtitle}>
+                View linked contacts
+              </Text>
+
+              <Ionicons
+                name="arrow-forward"
+                size={18}
+                color="#8397B1"
+                style={styles.arrow}
+              />
+            </TouchableOpacity>
           </View>
         </>
       )}
@@ -58,73 +128,157 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#061833',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 30,
+    backgroundColor: '#07172E',
+    paddingHorizontal: 22,
+    paddingTop: 62,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
+  header: {
+    marginBottom: 28,
+  },
+  eyebrow: {
+    color: '#4ED7E6',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 2.4,
     marginBottom: 8,
   },
+  title: {
+    fontSize: 31,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
   email: {
-    fontSize: 16,
-    color: '#ccc',
-    marginBottom: 4,
+    fontSize: 14,
+    color: '#8EA1BA',
+    marginTop: 6,
   },
-  role: {
-    fontSize: 16,
-    color: '#aaa',
-    marginBottom: 30,
-  },
-  button: {
+  roleBadge: {
+    alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#007AFF',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 10,
+    marginTop: 14,
+    backgroundColor: '#102B43',
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 999,
   },
-  icon: {
-    marginRight: 10,
+  roleDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#4ED7E6',
+    marginRight: 7,
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '500',
+  roleText: {
+    color: '#B8D7E5',
+    fontSize: 12,
+    fontWeight: '600',
   },
-  card: {
-    width: '100%',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 30,
-    elevation: 3,
+  heroCard: {
+    backgroundColor: '#10233E',
+    borderRadius: 24,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: '#1D3858',
+  },
+  heroIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 19,
+    backgroundColor: '#153550',
+    justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 18,
   },
-  welcome: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#061833',
-    marginBottom: 10,
-    textAlign: 'center',
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
-  info: {
-    fontSize: 16,
-    color: '#555',
-    textAlign: 'center',
+  heroText: {
+    color: '#91A4BC',
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: 8,
   },
-  buttonContainer: {
-    width: '100%',
+  primaryButton: {
+    marginTop: 22,
+    backgroundColor: '#4ED7E6',
+    borderRadius: 16,
+    paddingVertical: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
   },
-  buttonWrapper: {
+  primaryButtonText: {
+    color: '#07172E',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  activeStatus: {
+    marginTop: 20,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#15382F',
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  activeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#5AE2A8',
+    marginRight: 7,
+  },
+  activeText: {
+    color: '#7FE7BC',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  actionGrid: {
+    flexDirection: 'row',
+    gap: 14,
+    marginTop: 18,
+  },
+  actionCard: {
+    flex: 1,
+    minHeight: 170,
+    backgroundColor: '#10233E',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#1D3858',
+    padding: 17,
+  },
+  actionIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: '#153550',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 16,
-    width: '100%',
+  },
+  actionTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  actionSubtitle: {
+    color: '#8498B2',
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 5,
+    paddingRight: 15,
+  },
+  arrow: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
   },
 });
-
 
 
 
