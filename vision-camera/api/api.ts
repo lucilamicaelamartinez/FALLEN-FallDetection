@@ -1,4 +1,4 @@
-export const API_BASE = 'http://192.168.100.70:8085/api';
+export const API_BASE = 'https://fallen-falldetection-production.up.railway.app/api';
 
 export async function api(
   endpoint: string,
@@ -16,12 +16,20 @@ export async function api(
   });
 
   const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.message || 'API error');
+
+  if (!res.ok) {
+    throw new Error(json.message || 'API error');
+  }
+
   return json;
 }
 
 // 🔍 Buscar persona mayor por email
 export async function findElderByEmail(email: string, token: string) {
-  return await api(`/elders/by-email?email=${encodeURIComponent(email)}`, 'GET', token);
+  return await api(
+    `/elders/by-email?email=${encodeURIComponent(email)}`,
+    'GET',
+    token
+  );
 }
 
