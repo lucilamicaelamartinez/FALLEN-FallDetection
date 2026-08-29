@@ -52,4 +52,4 @@ fallen-falldetection-firebase-adminsdk-fbsvc-4367524976.json
 *-firebase-adminsdk-*.json
 
 # Firebase Android config
-google-services.json
+!android/app/google-services.json
