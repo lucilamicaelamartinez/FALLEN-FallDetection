@@ -1,0 +1,11 @@
+node_modules
+.expo
+.git
+android/.gradle
+android/app/build
+android/build
+build
+dist
+coverage
+*.log
+!android/app/google-services.json
